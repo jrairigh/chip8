@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "monitor.h": "c",
+        "stdbool.h": "c",
+        "assert.h": "c"
+    }
+}
