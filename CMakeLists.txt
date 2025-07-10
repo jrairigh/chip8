@@ -19,16 +19,10 @@ FetchContent_MakeAvailable(raylib)
 
 message(STATUS "C Flags: ${CMAKE_C_FLAGS}")
 
-#if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-#  message(STATUS "Building in Debug mode")
-#  add_definitions(-DDEBUG)
-#elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
-#  message(STATUS "Building in Release mode")
-#  add_definitions(-DNDEBUG)
-#endif()
-
 file(GLOB SOURCES "src/*.c")
 
 add_executable(Chip8 ${SOURCES})
+add_executable(Chip8Tests src/main.c src/chip8.c src/monitor.c)
 
 target_link_libraries(Chip8 raylib)
+target_compile_definitions(Chip8Tests PRIVATE RUN_TESTS)

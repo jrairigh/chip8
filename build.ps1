@@ -4,9 +4,7 @@ param(
     [ValidateSet("Debug", "Release")]
     [string]$Config,
     [Parameter(Mandatory = $false)]
-    [bool]$Clean = $false,
-    [Parameter(Mandatory = $false)]
-    [bool]$RunTests = $false
+    [bool]$Clean = $false
 )
 
 if ($Clean) {
@@ -15,10 +13,6 @@ if ($Clean) {
 }
 
 $C_FLAGS = @()
-if($RunTests) {
-    Write-Host "Configuring for running tests"
-    $C_FLAGS += "-DRUN_TESTS=1"
-}
 
 if($Config -eq "Debug") {
     Write-Host "Configuring for Debug build"

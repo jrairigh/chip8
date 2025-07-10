@@ -1,14 +1,91 @@
 #include "chip8.h"
 #include "monitor.h"
-#include "renderer.h"
+//#include "renderer.h"
 
+#include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
+#define vm_switch(inst, mask) switch(inst & mask)
+#define vm_case(op) case op:
+#define vm_default default:
+#define vm_break break;
+
+#define ADDR(instr) ((instr) & 0x0FFF)
+#define NIBBLE(instr) ((instr) & 0x000F)
+#define X(instr) ((instr & 0x0F00) >> 8)
+#define Y(instr) ((instr & 0x00F0) >> 4)
+#define BYTE(instr) ((instr) & 0x00FF)
+
 #ifdef RUN_TESTS
+#define REGX(x) ((x << 8) & 0x0F00)
+#define REGY(y) ((y << 4) & 0x00F0)
+
+#define CLS 0x00E0,
+#define RET 0x00EE,
+#define JP(addr) (0x1000 | ADDR(addr)),
+#define JPV0(addr) (0xB000 | ADDR(addr)),
+#define CALL(addr) (0x2000 | ADDR(addr)),
+#define DRW(x, y, n) (0xD000 | REGX(x) | REGY(y) | NIBBLE(n)),
+#define RND(x, byte) (0xC000 | REGX(x) | BYTE(byte)),
+#define AND(x, y) (0x8002 | REGX(x) | REGY(y)),
+#define OR(x, y) (0x8001 | REGX(x) | REGY(y)),
+#define XOR(x, y) (0x8003 | REGX(x) | REGY(y)),
+#define SUB(x, y) (0x8005 | REGX(x) | REGY(y)),
+#define SUBN(x, y) (0x8007 | REGX(x) | REGY(y)),
+#define SHR(x) (0x8006 | REGX(x)),
+#define SHL(x) (0x800E | REGX(x)),
+#define SKP(x) (0xE09E | REGX(x)),
+#define SKNP(x) (0xE0A1 | REGX(x)),
+
+#define SE1(x, byte) (0x3000 | REGX(x) | BYTE(byte)),
+#define SE2(x, y) (0x5000 | REGX(x) | REGY(y)),
+
+#define SNE1(x, byte) (0x4000 | REGX(x) | BYTE(byte)),
+#define SNE2(x, y) (0x9000 | REGX(x) | REGY(y)),
+
+#define LD1(x, byte) (0x6000 | REGX(x) | BYTE(byte)),
+#define LD2(x, y) (0x8000 | REGX(x) | REGY(y)),
+#define LD3(x) (0xF00A | REGX(x)),
+#define LD4(x) (0xF018 | REGX(x)),
+#define LD5(x) (0xF015 | REGX(x)),
+#define LD6(x) (0xF007 | REGX(x)),
+#define LD7(x) (0xF029 | REGX(x)),
+#define LD8(x) (0xF033 | REGX(x)),
+#define LD9(x) (0xF055 | REGX(x)),
+#define LDA(x) (0xF065 | REGX(x)),
+#define LDB(addr) (0xA000 | ADDR(addr)),
+
+#define ADD1(x, byte) (0x7000 | REGX(x) | BYTE(byte)),
+#define ADD2(x, y) (0x8004 | REGX(x) | REGY(y)),
+#define ADD3(x) (0xF01E | REGX(x)),
+
+#define BEGIN_TEST(name) { \
+    chip8_initialize(); \
+    total_tests++; \
+    const char* test_name = name; \
+    uint16_t program[] = {
+
+#define RUN_TEST }; \
+    memcpy(&s_chip8.ram[0x200], program, sizeof(program)); \
+    while((*(uint16_t*)&s_chip8.ram[s_chip8.pc]) != 0x0000) \
+        chip8_vm_run(); \
+    bool passed = true;
+    
+#define ASSERT_REG(reg, value) passed = passed && (s_chip8.v[reg] == value);
+#define ASSERT_SP(value) passed = passed && (s_chip8.sp == value);
+#define ASSERT_PC(value) passed = passed && (s_chip8.pc == value);
+#define ASSERT_INDEX(value) passed = passed && (s_chip8.index == value);
+#define ASSERT_STACK(level, value) passed = passed && (s_chip8.stack[level] == value);
+
+#define END_TEST \
+    if(passed) { \
+        passed_tests++; \
+    } \
+    printf("Test %-30s %s\n", test_name, passed ? "PASSED" : "FAILED");}
 
 #endif
 
@@ -27,21 +104,10 @@ typedef struct Chip8
 } Chip8;
 
 static Chip8 s_chip8;
-
-#define vm_switch(inst, mask) switch(inst & mask)
-#define vm_case(op) case op:
-#define vm_default default:
-#define vm_break break;
-
-#define ADDR(instr) ((instr) & 0x0FFF)
-#define NIBBLE(instr) ((instr) & 0x000F)
-#define X(instr) ((instr & 0x0F00) >> 8)
-#define Y(instr) ((instr & 0x00F0) >> 4)
-#define BYTE(instr) ((instr) & 0x00FF)
-
 static void chip8_initialize();
 static void chip8_vm_run();
 
+#ifndef RUN_TESTS
 void chip8_run()
 {
     chip8_initialize();
@@ -50,24 +116,73 @@ void chip8_run()
     renderer_do_update();
     renderer_shutdown();
 }
-
+#else
 void chip8_run_tests()
 {
-    printf("all tests passed\n");
+    int passed_tests = 0, total_tests = 0;
+
+    BEGIN_TEST("Jump to address")
+        JP(0x300)
+        RUN_TEST
+        ASSERT_PC(0x300)
+    END_TEST
+
+    BEGIN_TEST("Call")
+        CALL(0xFFE)
+        RUN_TEST
+        ASSERT_SP(1)
+        ASSERT_STACK(1, 0x200)
+        ASSERT_PC(0xFFE)
+    END_TEST
+
+    BEGIN_TEST("Skip Next VD == 1")
+        LD1(0xC, 0xCD)
+        SE1(0xC, 0xCD)
+        LD1(0xD, 0xAB)
+        ADD1(0xD, 0x01)
+        RUN_TEST
+        ASSERT_REG(0xD, 0x01)
+    END_TEST
+
+    BEGIN_TEST("Skip Next VD == 0xAC")
+        SE1(0xC, 0xCD)
+        LD1(0xD, 0xAB)
+        ADD1(0xD, 0x01)
+        RUN_TEST
+        ASSERT_REG(0xD, 0xAC)
+    END_TEST
+
+    BEGIN_TEST("Load byte")
+        LD1(1, 0xcd)
+        RUN_TEST
+        ASSERT_REG(1, 0xcd)
+    END_TEST
+
+    BEGIN_TEST("Add byte")
+        ADD1(0xA, 0x01)
+        ADD1(0xA, 0x02)
+        ADD1(0xA, 0x03)
+        RUN_TEST
+        ASSERT_REG(0xA, 0x06)
+    END_TEST
+
+    printf("Tests passed %d/%d\n", passed_tests, total_tests);
 }
+#endif
 
 static void chip8_initialize()
 {
     memset(&s_chip8, 0, sizeof(s_chip8));
     s_chip8.index = 0;
     s_chip8.pc = 0x200;
-    s_chip8.sp = 0x0;
+    s_chip8.sp = 0;
     s_chip8.speed = 10;
     s_chip8.paused = false;
 }
 
 static void chip8_vm_run()
 {
+    assert((s_chip8.pc & 0x1) == 0); // Ensure PC is even
     const uint16_t instruction = *(uint16_t*)(s_chip8.ram + s_chip8.pc);
     uint16_t pc_inc = 2;
     const uint8_t x = X(instruction);
