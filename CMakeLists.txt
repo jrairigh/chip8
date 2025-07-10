@@ -17,13 +17,15 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(raylib)
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-  message(STATUS "Building in Debug mode")
-  add_definitions(-DDEBUG)
-elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
-  message(STATUS "Building in Release mode")
-  add_definitions(-DNDEBUG)
-endif()
+message(STATUS "C Flags: ${CMAKE_C_FLAGS}")
+
+#if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+#  message(STATUS "Building in Debug mode")
+#  add_definitions(-DDEBUG)
+#elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
+#  message(STATUS "Building in Release mode")
+#  add_definitions(-DNDEBUG)
+#endif()
 
 file(GLOB SOURCES "src/*.c")
 
