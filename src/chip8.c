@@ -3,9 +3,7 @@
 //#include "renderer.h"
 
 #include <assert.h>
-#include <stdbool.h>
 #include <stdio.h>
-#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -20,7 +18,24 @@
 #define Y(instr) ((instr & 0x00F0) >> 4)
 #define BYTE(instr) ((instr) & 0x00FF)
 
-#ifdef RUN_TESTS
+// Interpreter digit start at 0x000
+#define D0 0x000
+#define D1 (D0 + (5 * 1))
+#define D2 (D0 + (5 * 2))
+#define D3 (D0 + (5 * 3))
+#define D4 (D0 + (5 * 4))
+#define D5 (D0 + (5 * 5))
+#define D6 (D0 + (5 * 6))
+#define D7 (D0 + (5 * 7))
+#define D8 (D0 + (5 * 8))
+#define D9 (D0 + (5 * 9))
+#define DA (D0 + (5 * 10))
+#define DB (D0 + (5 * 11))
+#define DC (D0 + (5 * 12))
+#define DD (D0 + (5 * 13))
+#define DE (D0 + (5 * 14))
+#define DF (D0 + (5 * 15))
+
 #define REGX(x) ((x << 8) & 0x0F00)
 #define REGY(y) ((y << 4) & 0x00F0)
 
@@ -63,6 +78,7 @@
 #define ADD2(x, y) (0x8004 | REGX(x) | REGY(y)),
 #define ADD3(x) (0xF01E | REGX(x)),
 
+#ifdef RUN_TESTS
 #define BEGIN_TEST(name) { \
     chip8_initialize(); \
     total_tests++; \
@@ -86,24 +102,9 @@
         passed_tests++; \
     } \
     printf("Test %-35s %s\n", test_name, passed ? "PASSED" : "FAILED");}
-
 #endif
 
-typedef struct Chip8
-{
-    uint8_t ram[4096];
-    uint8_t v[16];
-    uint16_t stack[16];
-    uint16_t index;
-    uint16_t pc;
-    uint8_t sp;
-    uint8_t delay_timer;
-    uint8_t sound_timer;
-    uint8_t speed;
-    bool paused;
-} Chip8;
-
-static Chip8 s_chip8;
+Chip8 s_chip8;
 static void chip8_initialize();
 static void chip8_vm_run();
 
@@ -111,6 +112,23 @@ static void chip8_vm_run();
 void chip8_run()
 {
     chip8_initialize();
+    uint16_t program[] = {
+        LD1(2, 0) // reg 2 holds digit 0
+        SE1(3, 0) // check if reg3 is 0
+        JP(0x20C)
+        LD1(3, 60) // reg3 holds delay timer value
+        LD5(3)   // set delay timer from reg 3
+        ADD1(2, 1)  // go to next font sprite
+        LD6(3)   // set reg 3 = delay timer
+        LD7(2)   // set I to location of font sprite in reg 2
+        LD1(0, 10) // x coord of sprite
+        LD1(1, 10) // y coord of sprite
+        CLS
+        DRW(0, 1, 5)
+        JP(0x202)
+    };
+
+    memcpy(&s_chip8.ram[s_chip8.pc], program, sizeof(program));
     renderer_initialize();
     renderer_set_update_func(chip8_vm_run);
     renderer_do_update();
@@ -271,6 +289,24 @@ static void chip8_initialize()
     s_chip8.sp = 0;
     s_chip8.speed = 10;
     s_chip8.paused = false;
+
+    // Store font set into interpreter area of memory (0x000 to 0x1FF)
+    memcpy(&s_chip8.ram[D0], (uint8_t[5]){0xF0, 0x90, 0x90, 0x90, 0xF0}, 5);
+    memcpy(&s_chip8.ram[D1], (uint8_t[5]){0x20, 0x60, 0x20, 0x20, 0x70}, 5);
+    memcpy(&s_chip8.ram[D2], (uint8_t[5]){0xF0, 0x10, 0xF0, 0x80, 0xF0}, 5);
+    memcpy(&s_chip8.ram[D3], (uint8_t[5]){0xF0, 0x10, 0xF0, 0x10, 0xF0}, 5);
+    memcpy(&s_chip8.ram[D4], (uint8_t[5]){0x90, 0x90, 0xF0, 0x10, 0x10}, 5);
+    memcpy(&s_chip8.ram[D5], (uint8_t[5]){0xF0, 0x80, 0xF0, 0x10, 0xF0}, 5);
+    memcpy(&s_chip8.ram[D6], (uint8_t[5]){0xF0, 0x80, 0xF0, 0x90, 0xF0}, 5);
+    memcpy(&s_chip8.ram[D7], (uint8_t[5]){0xF0, 0x10, 0x20, 0x40, 0x40}, 5);
+    memcpy(&s_chip8.ram[D8], (uint8_t[5]){0xF0, 0x90, 0xF0, 0x90, 0xF0}, 5);
+    memcpy(&s_chip8.ram[D9], (uint8_t[5]){0xF0, 0x90, 0xF0, 0x10, 0xF0}, 5);
+    memcpy(&s_chip8.ram[DA], (uint8_t[5]){0xF0, 0x90, 0xF0, 0x90, 0x90}, 5);
+    memcpy(&s_chip8.ram[DB], (uint8_t[5]){0xE0, 0x90, 0xE0, 0x90, 0xE0}, 5);
+    memcpy(&s_chip8.ram[DC], (uint8_t[5]){0xF0, 0x80, 0x80, 0x80, 0xF0}, 5);
+    memcpy(&s_chip8.ram[DD], (uint8_t[5]){0xE0, 0x90, 0x90, 0x90, 0xE0}, 5);
+    memcpy(&s_chip8.ram[DE], (uint8_t[5]){0xF0, 0x80, 0xF0, 0x80, 0xF0}, 5);
+    memcpy(&s_chip8.ram[DF], (uint8_t[5]){0xF0, 0x80, 0xF0, 0x80, 0x80}, 5);
 }
 
 static void chip8_vm_run()
@@ -285,20 +321,28 @@ static void chip8_vm_run()
     {
         vm_case(0x0000)
         {
-            vm_switch(instruction, 0x000F)
+            vm_switch(instruction, 0x00FF)
             {
-                vm_case(0x0)
+                vm_case(0xE0)
                 {
                     // CLS
                     monitor_clear();
                     vm_break;
                 }
 
-                vm_case(0xE)
+                vm_case(0xEE)
                 {
                     // RET
                     s_chip8.pc = s_chip8.stack[s_chip8.sp];
                     s_chip8.sp--;
+                    vm_break;
+                }
+
+                vm_default
+                {
+                    // halt
+                    renderer_log("HALTED");
+                    pc_inc = 0;
                     vm_break;
                 }
             }
@@ -532,6 +576,7 @@ static void chip8_vm_run()
                 vm_case(0x29)
                 {
                     // LD F, Vx
+                    s_chip8.index = D0 + NIBBLE(s_chip8.v[x]) * 5;
                     vm_break;
                 }
 
@@ -568,5 +613,13 @@ static void chip8_vm_run()
 
     s_chip8.pc += pc_inc;
 
-    monitor_do_update();
+    if(s_chip8.delay_timer > 0)
+    {
+        --s_chip8.delay_timer;
+    }
+
+    if(s_chip8.sound_timer > 0)
+    {
+        --s_chip8.sound_timer;
+    }
 }

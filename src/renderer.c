@@ -1,15 +1,18 @@
 #include "renderer.h"
+#include "chip8.h"
 
 #include "raylib.h"
 
 #include <string.h>
+
+extern Chip8 s_chip8;
 
 const int SCALE = 10;
 const int RASTER_COLUMNS = 64;
 const int RASTER_ROWS = 32;
 static int RASTER_DISPLAY[64];
 
-static void (*monitor_update)();
+static void (*vm_update)();
 
 static inline void draw_column(int x)
 {
@@ -51,6 +54,7 @@ void renderer_initialize()
 {
     InitWindow(64 * SCALE, 32 * SCALE, "Chip8 Emulator");
     SetTargetFPS(60);
+    SetTraceLogLevel(LOG_ALL);
 
     memset(RASTER_DISPLAY, 0, sizeof(RASTER_DISPLAY));
 }
@@ -61,7 +65,7 @@ void renderer_do_update()
 
     while(!WindowShouldClose())
     {
-        monitor_update();
+        vm_update();
 
         if (IsKeyPressed(KEY_F1))
         {
@@ -79,6 +83,14 @@ void renderer_do_update()
         if(is_fps_shown)
         {
             DrawFPS(10, 10);
+
+            const char* chip8Info = TextFormat("v0: %.02x  v1: %.02x  v2: %.02x  v3: %.02x  v4: %.02x  v5: %.02x  v6: %.02x  v7: %.02x\n"
+                "v8: %.02x  v9: %.02x  va: %.02x  vb: %.02x  vc: %.02x  vd: %.02x  ve: %.02x  vf: %.02x\n"
+                "index: %.04x  pc: %.04x  sp: %.02x  delay_timer: %.02x  sound_timer: %.02x\n",
+                s_chip8.v[0], s_chip8.v[1], s_chip8.v[2], s_chip8.v[3], s_chip8.v[4], s_chip8.v[5], s_chip8.v[6], s_chip8.v[7], 
+                s_chip8.v[8], s_chip8.v[9], s_chip8.v[10], s_chip8.v[11], s_chip8.v[12], s_chip8.v[13], s_chip8.v[14], s_chip8.v[15],
+                s_chip8.index, s_chip8.pc, s_chip8.sp, s_chip8.delay_timer, s_chip8.sound_timer);
+            DrawText(chip8Info, 10, 30, 18, DARKGREEN);
         }
 
         EndDrawing();
@@ -87,7 +99,6 @@ void renderer_do_update()
 
 void renderer_shutdown()
 {
-
 }
 
 void renderer_blit(int* data)
@@ -97,5 +108,10 @@ void renderer_blit(int* data)
 
 void renderer_set_update_func(void (*update_func)())
 {
-    monitor_update = update_func;
+    vm_update = update_func;
+}
+
+void renderer_log(const char* message)
+{
+    TraceLog(LOG_INFO, message);
 }
