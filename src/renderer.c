@@ -7,14 +7,14 @@
 
 extern Chip8 s_chip8;
 
-const int SCALE = 10;
-const int RASTER_COLUMNS = 64;
-const int RASTER_ROWS = 32;
-static int RASTER_DISPLAY[64];
+const int32_t SCALE = 10;
+const int32_t RASTER_COLUMNS = 64;
+const int32_t RASTER_ROWS = 32;
+static int32_t RASTER_DISPLAY[64];
 
 static void (*vm_update)();
 
-static inline void draw_column(int x)
+static inline void draw_column(int32_t x)
 {
     DrawRectangle(x * SCALE, 0, SCALE, SCALE, RASTER_DISPLAY[x] & 1 ? WHITE : BLACK);
     DrawRectangle(x * SCALE, SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & 2 ? WHITE : BLACK);
@@ -101,7 +101,7 @@ void renderer_shutdown()
 {
 }
 
-void renderer_blit(int* data)
+void renderer_blit(int32_t* data)
 {
     memcpy(RASTER_DISPLAY, data, sizeof(RASTER_DISPLAY));
 }
@@ -114,4 +114,105 @@ void renderer_set_update_func(void (*update_func)())
 void renderer_log(const char* message)
 {
     TraceLog(LOG_INFO, message);
+}
+
+bool renderer_get_key(uint8_t* outKey)
+{
+    if(IsKeyPressed(KEY_ONE))
+    {
+        *outKey = 0x1;
+        return true;
+    }
+
+    if(IsKeyPressed(KEY_TWO))
+    {
+        *outKey = 0x2;
+        return true;
+    }
+
+    if(IsKeyPressed(KEY_THREE))
+    {
+        *outKey = 0x3;
+        return true;
+    }
+
+    if(IsKeyPressed(KEY_FOUR))
+    {
+        *outKey = 0xC;
+        return true;
+    }
+
+    if(IsKeyPressed(KEY_Q))
+    {
+        *outKey = 0x4;
+        return true;
+    }
+
+    if(IsKeyPressed(KEY_W))
+    {
+        *outKey = 0x5;
+        return true;
+    }
+
+    if(IsKeyPressed(KEY_E))
+    {
+        *outKey = 0x6;
+        return true;
+    }
+
+    if(IsKeyPressed(KEY_R))
+    {
+        *outKey = 0xD;
+        return true;
+    }
+
+    if(IsKeyPressed(KEY_A))
+    {
+        *outKey = 0x7;
+        return true;
+    }
+
+    if(IsKeyPressed(KEY_S))
+    {
+        *outKey = 0x8;
+        return true;
+    }
+
+    if(IsKeyPressed(KEY_D))
+    {
+        *outKey = 0x9;
+        return true;
+    }
+
+    if(IsKeyPressed(KEY_F))
+    {
+        *outKey = 0xE;
+        return true;
+    }
+
+    if(IsKeyPressed(KEY_Z))
+    {
+        *outKey = 0xA;
+        return true;
+    }
+
+    if(IsKeyPressed(KEY_X))
+    {
+        *outKey = 0x0;
+        return true;
+    }
+
+    if(IsKeyPressed(KEY_C))
+    {
+        *outKey = 0xB;
+        return true;
+    }
+
+    if(IsKeyPressed(KEY_V))
+    {
+        *outKey = 0xF;
+        return true;
+    }
+
+    return false;
 }

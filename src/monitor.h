@@ -6,5 +6,6 @@
 
 void monitor_clear();
 void monitor_draw_sprite(int32_t x, int32_t y, uint8_t* sprite, uint32_t sprite_size_in_bytes, bool* didCollide);
+bool monitor_get_key(uint8_t* outKey);
 
 #endif

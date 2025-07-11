@@ -1,6 +1,5 @@
 #include "chip8.h"
 #include "monitor.h"
-//#include "renderer.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -42,7 +41,7 @@
 #define CLS 0x00E0,
 #define RET 0x00EE,
 #define JP(addr) (0x1000 | ADDR(addr)),
-#define JPV0(addr) (0xB000 | ADDR(addr)),
+#define JP1(addr) (0xB000 | ADDR(addr)),
 #define CALL(addr) (0x2000 | ADDR(addr)),
 #define DRW(x, y, n) (0xD000 | REGX(x) | REGY(y) | NIBBLE(n)),
 #define RND(x, byte) (0xC000 | REGX(x) | BYTE(byte)),
@@ -96,6 +95,8 @@
 #define ASSERT_PC(value) passed = passed && (s_chip8.pc == value);
 #define ASSERT_INDEX(value) passed = passed && (s_chip8.index == value);
 #define ASSERT_STACK(level, value) passed = passed && (s_chip8.stack[level] == value);
+#define ASSERT_DT(value) passed = passed && (s_chip8.delay_timer == value);
+#define ASSERT_ST(value) passed = passed && (s_chip8.sound_timer == value);
 
 #define END_TEST \
     if(passed) { \
@@ -113,6 +114,7 @@ void chip8_run()
 {
     chip8_initialize();
     uint16_t program[] = {
+        LD3(0xE)  // wait for key press to start
         LD1(2, 0) // reg 2 holds digit 0
         SE1(3, 0) // check if reg3 is 0
         JP(0x20C)
@@ -125,7 +127,7 @@ void chip8_run()
         LD1(1, 10) // y coord of sprite
         CLS
         DRW(0, 1, 5)
-        JP(0x202)
+        JP(0x204)
     };
 
     memcpy(&s_chip8.ram[s_chip8.pc], program, sizeof(program));
@@ -143,6 +145,13 @@ void chip8_run_tests()
         JP(0x300)
         RUN_TEST
         ASSERT_PC(0x300)
+    END_TEST
+
+    BEGIN_TEST("Jump w/offset")
+        LD1(0x0, 2)
+        JP1(0x300)
+        RUN_TEST
+        ASSERT_PC(0x302)
     END_TEST
 
     BEGIN_TEST("Return")
@@ -227,6 +236,21 @@ void chip8_run_tests()
         ASSERT_REG(0xC, 0x69)
     END_TEST
 
+    BEGIN_TEST("Load index")
+        LDB(0x300)
+        RUN_TEST
+        ASSERT_INDEX(0x300)
+    END_TEST
+
+    BEGIN_TEST("Load delay timer (Set/Get)")
+        LD1(0x0, 60)
+        LD5(0x0)
+        LD6(0x1)
+        RUN_TEST
+        ASSERT_DT(58)
+        ASSERT_REG(0x1, 59)
+    END_TEST
+
     BEGIN_TEST("Add byte")
         ADD1(0xA, 0x01)
         ADD1(0xA, 0x02)
@@ -242,7 +266,7 @@ void chip8_run_tests()
         RUN_TEST
         ASSERT_REG(0x4, 0x00)
         ASSERT_REG(0xF, 0x01)
-        END_TEST
+    END_TEST
         
     BEGIN_TEST("Add register wo/carry")
         LD1(0x4, 0xFE)
@@ -251,6 +275,40 @@ void chip8_run_tests()
         RUN_TEST
         ASSERT_REG(0x4, 0xFF)
         ASSERT_REG(0xF, 0x00)
+    END_TEST
+
+    BEGIN_TEST("Subtract w/borrow")
+        LD1(0xC, 0x01)
+        SUB(0xD, 0xC)
+        RUN_TEST
+        ASSERT_REG(0xD, 0xFF)
+        ASSERT_REG(0xF, 0x00)
+    END_TEST
+
+    BEGIN_TEST("Subtract wo/borrow")
+        LD1(0xD, 0x01)
+        LD1(0xC, 0x10)
+        SUB(0xC, 0xD)
+        RUN_TEST
+        ASSERT_REG(0xC, 0x0F)
+        ASSERT_REG(0xF, 0x01)
+    END_TEST
+
+    BEGIN_TEST("SUBN w/borrow")
+        LD1(0xC, 0x1)
+        SUBN(0xC, 0xD)
+        RUN_TEST
+        ASSERT_REG(0xC, 0xFF)
+        ASSERT_REG(0xF, 0x00)
+    END_TEST
+
+    BEGIN_TEST("SUBN wo/borrow")
+        LD1(0xC, 0x01)
+        LD1(0xD, 0x10)
+        SUBN(0xC, 0xD)
+        RUN_TEST
+        ASSERT_REG(0xC, 0x0F)
+        ASSERT_REG(0xF, 0x01)
     END_TEST
 
     BEGIN_TEST("Or")
@@ -275,6 +333,38 @@ void chip8_run_tests()
         XOR(0xC, 0xD)
         RUN_TEST
         ASSERT_REG(0xC, 0x08)
+    END_TEST
+
+    BEGIN_TEST("Shift right (odd)")
+        LD1(0xC, 0x0F)
+        SHR(0xC)
+        RUN_TEST
+        ASSERT_REG(0xC, 0x07)
+        ASSERT_REG(0xF, 0x01)
+    END_TEST
+
+    BEGIN_TEST("Shift right (even)")
+        LD1(0xC, 0x10)
+        SHR(0xC)
+        RUN_TEST
+        ASSERT_REG(0xC, 0x08)
+        ASSERT_REG(0xF, 0x00)
+    END_TEST
+
+    BEGIN_TEST("Shift left w/overflow")
+        LD1(0xC, 0x80)
+        SHL(0xC)
+        RUN_TEST
+        ASSERT_REG(0xC, 0x00)
+        ASSERT_REG(0xF, 0x01)
+    END_TEST
+
+    BEGIN_TEST("Shift left wo/overflow")
+        LD1(0xC, 0x08)
+        SHL(0xC)
+        RUN_TEST
+        ASSERT_REG(0xC, 0x10)
+        ASSERT_REG(0xF, 0x00)
     END_TEST
 
     printf("Tests passed %d/%d\n", passed_tests, total_tests);
@@ -471,7 +561,7 @@ static void chip8_vm_run()
                 vm_case(0xE)
                 {
                     // SHL Vx {, Vy}
-                    s_chip8.v[0xF] = s_chip8.v[x] & 0x80; // Set carry flag
+                    s_chip8.v[0xF] = (s_chip8.v[x] & 0x80) > 0; // Set carry flag
                     s_chip8.v[x] <<= 1;
                     vm_break;
                 }
@@ -549,6 +639,15 @@ static void chip8_vm_run()
                 vm_case(0x0A)
                 {
                     // LD Vx, K
+                    uint8_t key;
+                    bool is_pressed = monitor_get_key(&key);
+                    pc_inc = 0;
+                    if(is_pressed)
+                    {
+                        s_chip8.v[x] = key;
+                        pc_inc = 2;
+                    }
+
                     vm_break;
                 }
 

@@ -62,3 +62,8 @@ static void monitor_set_pixel(int x, int y, bool is_on, bool* didCollide)
     MONITOR[x] ^= (1 << y);
     *didCollide = (MONITOR[x] & (1 << y)) == 0;
 }
+
+bool monitor_get_key(uint8_t* outKey)
+{
+    return renderer_get_key(outKey);
+}
