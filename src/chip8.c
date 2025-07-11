@@ -85,7 +85,7 @@
     if(passed) { \
         passed_tests++; \
     } \
-    printf("Test %-30s %s\n", test_name, passed ? "PASSED" : "FAILED");}
+    printf("Test %-35s %s\n", test_name, passed ? "PASSED" : "FAILED");}
 
 #endif
 
@@ -127,6 +127,18 @@ void chip8_run_tests()
         ASSERT_PC(0x300)
     END_TEST
 
+    BEGIN_TEST("Return")
+        CALL(0x208)
+        0, /*0x202 */
+        0, /*0x204 */
+        0, /*0x206*/
+        RET
+        RUN_TEST
+        ASSERT_PC(0x202)
+        ASSERT_STACK(1, 0x200)
+        ASSERT_SP(0)
+    END_TEST
+
     BEGIN_TEST("Call")
         CALL(0xFFE)
         RUN_TEST
@@ -135,7 +147,7 @@ void chip8_run_tests()
         ASSERT_PC(0xFFE)
     END_TEST
 
-    BEGIN_TEST("Skip Next VD == 1")
+    BEGIN_TEST("Skip Next (x == byte) Case 1")
         LD1(0xC, 0xCD)
         SE1(0xC, 0xCD)
         LD1(0xD, 0xAB)
@@ -144,12 +156,44 @@ void chip8_run_tests()
         ASSERT_REG(0xD, 0x01)
     END_TEST
 
-    BEGIN_TEST("Skip Next VD == 0xAC")
+    BEGIN_TEST("Skip Next (x == byte) Case 2")
         SE1(0xC, 0xCD)
         LD1(0xD, 0xAB)
         ADD1(0xD, 0x01)
         RUN_TEST
         ASSERT_REG(0xD, 0xAC)
+    END_TEST
+
+    BEGIN_TEST("Skip Next (x != byte) Case 1")
+        LD1(0xC, 0xCD)
+        SNE1(0xC, 0xCD)
+        LD1(0xD, 0xAB)
+        ADD1(0xD, 0x01)
+        RUN_TEST
+        ASSERT_REG(0xD, 0xAC)
+    END_TEST
+
+    BEGIN_TEST("Skip Next (x != byte) Case 2")
+        SNE1(0xC, 0xCD)
+        LD1(0xD, 0xAB)
+        ADD1(0xD, 0x01)
+        RUN_TEST
+        ASSERT_REG(0xD, 0x01)
+    END_TEST
+
+    BEGIN_TEST("Skip Next (x == y) Case 1")
+        SE2(0xC, 0xE)
+        ADD1(0xD, 0x01)
+        RUN_TEST
+        ASSERT_REG(0xD, 0x00)
+    END_TEST
+
+    BEGIN_TEST("Skip Next (x == y) Case 2")
+        LD1(0xC, 0xEF)
+        SE2(0xC, 0xE)
+        ADD1(0xD, 0x01)
+        RUN_TEST
+        ASSERT_REG(0xD, 0x01)
     END_TEST
 
     BEGIN_TEST("Load byte")
@@ -158,12 +202,61 @@ void chip8_run_tests()
         ASSERT_REG(1, 0xcd)
     END_TEST
 
+    BEGIN_TEST("Load register")
+        LD1(0xD, 0x69)
+        LD2(0xC, 0xD)
+        RUN_TEST
+        ASSERT_REG(0xC, 0x69)
+    END_TEST
+
     BEGIN_TEST("Add byte")
         ADD1(0xA, 0x01)
         ADD1(0xA, 0x02)
         ADD1(0xA, 0x03)
         RUN_TEST
         ASSERT_REG(0xA, 0x06)
+    END_TEST
+
+    BEGIN_TEST("Add register w/carry")
+        LD1(0x4, 0xFF)
+        LD1(0x5, 0x01)
+        ADD2(0x4, 0x5)
+        RUN_TEST
+        ASSERT_REG(0x4, 0x00)
+        ASSERT_REG(0xF, 0x01)
+        END_TEST
+        
+    BEGIN_TEST("Add register wo/carry")
+        LD1(0x4, 0xFE)
+        LD1(0x5, 0x01)
+        ADD2(0x4, 0x5)
+        RUN_TEST
+        ASSERT_REG(0x4, 0xFF)
+        ASSERT_REG(0xF, 0x00)
+    END_TEST
+
+    BEGIN_TEST("Or")
+        LD1(0xD, 0x07)
+        LD1(0xC, 0x0F)
+        OR(0xC, 0xD)
+        RUN_TEST
+        ASSERT_REG(0xC, 0x0F)
+    END_TEST
+
+    BEGIN_TEST("And")
+        LD1(0xD, 0x07)
+        LD1(0xC, 0x0F)
+        AND(0xC, 0xD)
+        RUN_TEST
+        ASSERT_REG(0xC, 0x07)
+    END_TEST
+
+    BEGIN_TEST("Xor")
+        LD1(0xD, 0x07)
+        LD1(0xC, 0x0F)
+        XOR(0xC, 0xD)
+        RUN_TEST
+        ASSERT_REG(0xC, 0x08)
     END_TEST
 
     printf("Tests passed %d/%d\n", passed_tests, total_tests);
@@ -204,7 +297,6 @@ static void chip8_vm_run()
                 vm_case(0xE)
                 {
                     // RET
-                    pc_inc = 0;
                     s_chip8.pc = s_chip8.stack[s_chip8.sp];
                     s_chip8.sp--;
                     vm_break;
