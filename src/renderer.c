@@ -72,6 +72,16 @@ void renderer_do_update()
             is_fps_shown = !is_fps_shown;
         }
 
+        if (IsKeyPressed(KEY_EQUAL) && s_chip8.speed < 10000000)
+        {
+            s_chip8.speed *= 10;
+        }
+
+        if (IsKeyPressed(KEY_MINUS) && s_chip8.speed > 1)
+        {
+            s_chip8.speed /= 10;
+        }
+
         BeginDrawing();
         ClearBackground(BLACK);
 
@@ -86,10 +96,11 @@ void renderer_do_update()
 
             const char* chip8Info = TextFormat("v0: %.02x  v1: %.02x  v2: %.02x  v3: %.02x  v4: %.02x  v5: %.02x  v6: %.02x  v7: %.02x\n"
                 "v8: %.02x  v9: %.02x  va: %.02x  vb: %.02x  vc: %.02x  vd: %.02x  ve: %.02x  vf: %.02x\n"
-                "index: %.04x  pc: %.04x  sp: %.02x  delay_timer: %.02x  sound_timer: %.02x\n",
+                "index: %.04x  pc: %.04x  sp: %.02x  delay_timer: %.02x  sound_timer: %.02x\n"
+                "speed: %d\n",
                 s_chip8.v[0], s_chip8.v[1], s_chip8.v[2], s_chip8.v[3], s_chip8.v[4], s_chip8.v[5], s_chip8.v[6], s_chip8.v[7], 
                 s_chip8.v[8], s_chip8.v[9], s_chip8.v[10], s_chip8.v[11], s_chip8.v[12], s_chip8.v[13], s_chip8.v[14], s_chip8.v[15],
-                s_chip8.index, s_chip8.pc, s_chip8.sp, s_chip8.delay_timer, s_chip8.sound_timer);
+                s_chip8.index, s_chip8.pc, s_chip8.sp, s_chip8.delay_timer, s_chip8.sound_timer, s_chip8.speed);
             DrawText(chip8Info, 10, 30, 18, DARKGREEN);
         }
 

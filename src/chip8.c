@@ -14,19 +14,17 @@
 
 Chip8 s_chip8;
 void chip8_initialize();
+void chip8_cycle();
 void chip8_vm_run();
 
 #ifndef RUN_TESTS
 void chip8_run()
 {
     chip8_initialize();
-    uint16_t program[] = {
-        #include "program.txt"
-    };
-    
+#include "program.h"
     memcpy(&s_chip8.ram[s_chip8.pc], program, sizeof(program));
     renderer_initialize();
-    renderer_set_update_func(chip8_vm_run);
+    renderer_set_update_func(chip8_cycle);
     renderer_do_update();
     renderer_shutdown();
 }
@@ -48,22 +46,44 @@ void chip8_initialize()
     s_chip8.paused = false;
 
     // Store font set into interpreter area of memory (0x000 to 0x1FF)
-    memcpy(&s_chip8.ram[D0], (uint8_t[5]){0xF0, 0x90, 0x90, 0x90, 0xF0}, 5);
-    memcpy(&s_chip8.ram[D1], (uint8_t[5]){0x20, 0x60, 0x20, 0x20, 0x70}, 5);
-    memcpy(&s_chip8.ram[D2], (uint8_t[5]){0xF0, 0x10, 0xF0, 0x80, 0xF0}, 5);
-    memcpy(&s_chip8.ram[D3], (uint8_t[5]){0xF0, 0x10, 0xF0, 0x10, 0xF0}, 5);
-    memcpy(&s_chip8.ram[D4], (uint8_t[5]){0x90, 0x90, 0xF0, 0x10, 0x10}, 5);
-    memcpy(&s_chip8.ram[D5], (uint8_t[5]){0xF0, 0x80, 0xF0, 0x10, 0xF0}, 5);
-    memcpy(&s_chip8.ram[D6], (uint8_t[5]){0xF0, 0x80, 0xF0, 0x90, 0xF0}, 5);
-    memcpy(&s_chip8.ram[D7], (uint8_t[5]){0xF0, 0x10, 0x20, 0x40, 0x40}, 5);
-    memcpy(&s_chip8.ram[D8], (uint8_t[5]){0xF0, 0x90, 0xF0, 0x90, 0xF0}, 5);
-    memcpy(&s_chip8.ram[D9], (uint8_t[5]){0xF0, 0x90, 0xF0, 0x10, 0xF0}, 5);
-    memcpy(&s_chip8.ram[DA], (uint8_t[5]){0xF0, 0x90, 0xF0, 0x90, 0x90}, 5);
-    memcpy(&s_chip8.ram[DB], (uint8_t[5]){0xE0, 0x90, 0xE0, 0x90, 0xE0}, 5);
-    memcpy(&s_chip8.ram[DC], (uint8_t[5]){0xF0, 0x80, 0x80, 0x80, 0xF0}, 5);
-    memcpy(&s_chip8.ram[DD], (uint8_t[5]){0xE0, 0x90, 0x90, 0x90, 0xE0}, 5);
-    memcpy(&s_chip8.ram[DE], (uint8_t[5]){0xF0, 0x80, 0xF0, 0x80, 0xF0}, 5);
-    memcpy(&s_chip8.ram[DF], (uint8_t[5]){0xF0, 0x80, 0xF0, 0x80, 0x80}, 5);
+    const uint8_t digits[] = {
+        /*0*/0xF0, 0x90, 0x90, 0x90, 0xF0,
+        /*1*/0x20, 0x60, 0x20, 0x20, 0x70,
+        /*2*/0xF0, 0x10, 0xF0, 0x80, 0xF0,
+        /*3*/0xF0, 0x10, 0xF0, 0x10, 0xF0,
+        /*4*/0x90, 0x90, 0xF0, 0x10, 0x10,
+        /*5*/0xF0, 0x80, 0xF0, 0x10, 0xF0,
+        /*6*/0xF0, 0x80, 0xF0, 0x90, 0xF0,
+        /*7*/0xF0, 0x10, 0x20, 0x40, 0x40,
+        /*8*/0xF0, 0x90, 0xF0, 0x90, 0xF0,
+        /*9*/0xF0, 0x90, 0xF0, 0x10, 0xF0,
+        /*A*/0xF0, 0x90, 0xF0, 0x90, 0x90,
+        /*B*/0xE0, 0x90, 0xE0, 0x90, 0xE0,
+        /*C*/0xF0, 0x80, 0x80, 0x80, 0xF0,
+        /*D*/0xE0, 0x90, 0x90, 0x90, 0xE0,
+        /*E*/0xF0, 0x80, 0xF0, 0x80, 0xF0,
+        /*F*/0xF0, 0x80, 0xF0, 0x80, 0x80
+    };
+
+    memcpy(&s_chip8.ram[D0], digits, sizeof(digits));
+}
+
+void chip8_cycle()
+{
+    for(int32_t i = 0; i < s_chip8.speed; ++i)
+    {
+        chip8_vm_run();
+    }
+
+    if(s_chip8.delay_timer > 0)
+    {
+        --s_chip8.delay_timer;
+    }
+
+    if(s_chip8.sound_timer > 0)
+    {
+        --s_chip8.sound_timer;
+    }
 }
 
 void chip8_vm_run()
@@ -400,14 +420,4 @@ void chip8_vm_run()
     }
 
     s_chip8.pc += pc_inc;
-
-    if(s_chip8.delay_timer > 0)
-    {
-        --s_chip8.delay_timer;
-    }
-
-    if(s_chip8.sound_timer > 0)
-    {
-        --s_chip8.sound_timer;
-    }
 }

@@ -1,3 +1,5 @@
+#include "codes.h"
+unsigned short program[] = {
 /*200*/ LD1(0xB, 1)
 /*202*/ LD1(2, 0) // reg 2 holds digit 0
 /*204*/ LD7(2)   // set I to location of font sprite in reg 2
@@ -8,3 +10,4 @@
 /*20E*/ CLS
 /*210*/ DRW(0, 1, 5)
 /*212*/ JP(0x206)
+};

@@ -6,12 +6,13 @@
 #include <string.h>
 
 void chip8_initialize();
-void chip8_vm_run();
+void chip8_cycle();
 
 extern Chip8 s_chip8;
 
 #define BEGIN_TEST(name) { \
     chip8_initialize(); \
+    s_chip8.speed = 1; \
     total_tests++; \
     const char* test_name = name; \
     uint16_t program[] = {
@@ -19,7 +20,7 @@ extern Chip8 s_chip8;
 #define RUN_TEST }; \
     memcpy(&s_chip8.ram[PROGRAM_START], program, sizeof(program)); \
     while((*(uint16_t*)&s_chip8.ram[s_chip8.pc]) != 0x0000) \
-        chip8_vm_run(); \
+        chip8_cycle(); \
     bool passed = true;
     
 #define ASSERT_REG(reg, value) passed = passed && (s_chip8.v[reg] == value);
