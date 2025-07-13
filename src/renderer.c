@@ -216,3 +216,88 @@ bool renderer_get_key(uint8_t* outKey)
 
     return false;
 }
+
+bool renderer_is_key_down(uint8_t key)
+{
+    if(IsKeyDown(KEY_ONE) && key == 0x1)
+    {
+        return true;
+    }
+
+    if(IsKeyDown(KEY_TWO) && key == 0x2)
+    {
+        return true;
+    }
+
+    if(IsKeyDown(KEY_THREE) && key == 0x3)
+    {
+        return true;
+    }
+
+    if(IsKeyDown(KEY_FOUR) && key == 0xC)
+    {
+        return true;
+    }
+
+    if(IsKeyDown(KEY_Q) && key == 0x4)
+    {
+        return true;
+    }
+
+    if(IsKeyDown(KEY_W) && key == 0x5)
+    {
+        return true;
+    }
+
+    if(IsKeyDown(KEY_E) && key == 0x6)
+    {
+        return true;
+    }
+
+    if(IsKeyDown(KEY_R) && key == 0xD)
+    {
+        return true;
+    }
+
+    if(IsKeyDown(KEY_A) && key == 0x7)
+    {
+        return true;
+    }
+
+    if(IsKeyDown(KEY_S) && key == 0x8)
+    {
+        return true;
+    }
+
+    if(IsKeyDown(KEY_D) && key == 0x9)
+    {
+        return true;
+    }
+
+    if(IsKeyDown(KEY_F) && key == 0xE)
+    {
+        return true;
+    }
+
+    if(IsKeyDown(KEY_Z) && key == 0xA)
+    {
+        return true;
+    }
+
+    if(IsKeyDown(KEY_X) && key == 0x0)
+    {
+        return true;
+    }
+
+    if(IsKeyDown(KEY_C) && key == 0xB)
+    {
+        return true;
+    }
+
+    if(IsKeyDown(KEY_V) && key == 0xF)
+    {
+        return true;
+    }
+
+    return false;
+}

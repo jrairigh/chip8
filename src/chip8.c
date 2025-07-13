@@ -1,3 +1,4 @@
+#include "codes.h"
 #include "chip8.h"
 #include "monitor.h"
 
@@ -11,11 +12,7 @@
 #define vm_default default:
 #define vm_break break;
 
-#define ADDR(instr) ((instr) & 0x0FFF)
-#define NIBBLE(instr) ((instr) & 0x000F)
-#define X(instr) ((instr & 0x0F00) >> 8)
-#define Y(instr) ((instr & 0x00F0) >> 4)
-#define BYTE(instr) ((instr) & 0x00FF)
+#define PROGRAM_START 0x200
 
 // Interpreter digit start at 0x000
 #define D0 0x000
@@ -35,48 +32,6 @@
 #define DE (D0 + (5 * 14))
 #define DF (D0 + (5 * 15))
 
-#define REGX(x) ((x << 8) & 0x0F00)
-#define REGY(y) ((y << 4) & 0x00F0)
-
-#define CLS 0x00E0,
-#define RET 0x00EE,
-#define JP(addr) (0x1000 | ADDR(addr)),
-#define JP1(addr) (0xB000 | ADDR(addr)),
-#define CALL(addr) (0x2000 | ADDR(addr)),
-#define DRW(x, y, n) (0xD000 | REGX(x) | REGY(y) | NIBBLE(n)),
-#define RND(x, byte) (0xC000 | REGX(x) | BYTE(byte)),
-#define AND(x, y) (0x8002 | REGX(x) | REGY(y)),
-#define OR(x, y) (0x8001 | REGX(x) | REGY(y)),
-#define XOR(x, y) (0x8003 | REGX(x) | REGY(y)),
-#define SUB(x, y) (0x8005 | REGX(x) | REGY(y)),
-#define SUBN(x, y) (0x8007 | REGX(x) | REGY(y)),
-#define SHR(x) (0x8006 | REGX(x)),
-#define SHL(x) (0x800E | REGX(x)),
-#define SKP(x) (0xE09E | REGX(x)),
-#define SKNP(x) (0xE0A1 | REGX(x)),
-
-#define SE1(x, byte) (0x3000 | REGX(x) | BYTE(byte)),
-#define SE2(x, y) (0x5000 | REGX(x) | REGY(y)),
-
-#define SNE1(x, byte) (0x4000 | REGX(x) | BYTE(byte)),
-#define SNE2(x, y) (0x9000 | REGX(x) | REGY(y)),
-
-#define LD1(x, byte) (0x6000 | REGX(x) | BYTE(byte)),
-#define LD2(x, y) (0x8000 | REGX(x) | REGY(y)),
-#define LD3(x) (0xF00A | REGX(x)),
-#define LD4(x) (0xF018 | REGX(x)),
-#define LD5(x) (0xF015 | REGX(x)),
-#define LD6(x) (0xF007 | REGX(x)),
-#define LD7(x) (0xF029 | REGX(x)),
-#define LD8(x) (0xF033 | REGX(x)),
-#define LD9(x) (0xF055 | REGX(x)),
-#define LDA(x) (0xF065 | REGX(x)),
-#define LDB(addr) (0xA000 | ADDR(addr)),
-
-#define ADD1(x, byte) (0x7000 | REGX(x) | BYTE(byte)),
-#define ADD2(x, y) (0x8004 | REGX(x) | REGY(y)),
-#define ADD3(x) (0xF01E | REGX(x)),
-
 #ifdef RUN_TESTS
 #define BEGIN_TEST(name) { \
     chip8_initialize(); \
@@ -85,7 +40,7 @@
     uint16_t program[] = {
 
 #define RUN_TEST }; \
-    memcpy(&s_chip8.ram[0x200], program, sizeof(program)); \
+    memcpy(&s_chip8.ram[PROGRAM_START], program, sizeof(program)); \
     while((*(uint16_t*)&s_chip8.ram[s_chip8.pc]) != 0x0000) \
         chip8_vm_run(); \
     bool passed = true;
@@ -97,6 +52,7 @@
 #define ASSERT_STACK(level, value) passed = passed && (s_chip8.stack[level] == value);
 #define ASSERT_DT(value) passed = passed && (s_chip8.delay_timer == value);
 #define ASSERT_ST(value) passed = passed && (s_chip8.sound_timer == value);
+#define ASSERT_MEM(index, value) passed = passed && (s_chip8.ram[index] == value);
 
 #define END_TEST \
     if(passed) { \
@@ -114,20 +70,7 @@ void chip8_run()
 {
     chip8_initialize();
     uint16_t program[] = {
-        LD3(0xE)  // wait for key press to start
-        LD1(2, 0) // reg 2 holds digit 0
-        SE1(3, 0) // check if reg3 is 0
-        JP(0x20C)
-        LD1(3, 60) // reg3 holds delay timer value
-        LD5(3)   // set delay timer from reg 3
-        ADD1(2, 1)  // go to next font sprite
-        LD6(3)   // set reg 3 = delay timer
-        LD7(2)   // set I to location of font sprite in reg 2
-        LD1(0, 10) // x coord of sprite
-        LD1(1, 10) // y coord of sprite
-        CLS
-        DRW(0, 1, 5)
-        JP(0x204)
+#include "program.txt"
     };
 
     memcpy(&s_chip8.ram[s_chip8.pc], program, sizeof(program));
@@ -162,7 +105,7 @@ void chip8_run_tests()
         RET
         RUN_TEST
         ASSERT_PC(0x202)
-        ASSERT_STACK(1, 0x200)
+        ASSERT_STACK(1, PROGRAM_START)
         ASSERT_SP(0)
     END_TEST
 
@@ -170,7 +113,7 @@ void chip8_run_tests()
         CALL(0xFFE)
         RUN_TEST
         ASSERT_SP(1)
-        ASSERT_STACK(1, 0x200)
+        ASSERT_STACK(1, PROGRAM_START)
         ASSERT_PC(0xFFE)
     END_TEST
 
@@ -242,6 +185,134 @@ void chip8_run_tests()
         ASSERT_INDEX(0x300)
     END_TEST
 
+    BEGIN_TEST("Load font 0")
+        LD7(0x0)
+        RUN_TEST
+        ASSERT_INDEX(D0)
+    END_TEST
+
+    BEGIN_TEST("Load font 1")
+        LD1(0x0, 1)
+        LD7(0x0)
+        RUN_TEST
+        ASSERT_INDEX(D1)
+    END_TEST
+
+    BEGIN_TEST("Load font 2")
+        LD1(0x0, 2)
+        LD7(0x0)
+        RUN_TEST
+        ASSERT_INDEX(D2)
+    END_TEST
+
+    BEGIN_TEST("Load font 3")
+        LD1(0x0, 3)
+        LD7(0x0)
+        RUN_TEST
+        ASSERT_INDEX(D3)
+    END_TEST
+
+    BEGIN_TEST("Load font 4")
+        LD1(0x0, 4)
+        LD7(0x0)
+        RUN_TEST
+        ASSERT_INDEX(D4)
+    END_TEST
+
+    BEGIN_TEST("Load font 5")
+        LD1(0x0, 5)
+        LD7(0x0)
+        RUN_TEST
+        ASSERT_INDEX(D5)
+    END_TEST
+
+    BEGIN_TEST("Load font 6")
+        LD1(0x0, 6)
+        LD7(0x0)
+        RUN_TEST
+        ASSERT_INDEX(D6)
+    END_TEST
+
+    BEGIN_TEST("Load font 7")
+        LD1(0x0, 7)
+        LD7(0x0)
+        RUN_TEST
+        ASSERT_INDEX(D7)
+    END_TEST
+
+    BEGIN_TEST("Load font 8")
+        LD1(0x0, 8)
+        LD7(0x0)
+        RUN_TEST
+        ASSERT_INDEX(D8)
+    END_TEST
+
+    BEGIN_TEST("Load font 9")
+        LD1(0x0, 9)
+        LD7(0x0)
+        RUN_TEST
+        ASSERT_INDEX(D9)
+    END_TEST
+
+    BEGIN_TEST("Load font A")
+        LD1(0x0, 0xA)
+        LD7(0x0)
+        RUN_TEST
+        ASSERT_INDEX(DA)
+    END_TEST
+
+    BEGIN_TEST("Load font B")
+        LD1(0x0, 0xB)
+        LD7(0x0)
+        RUN_TEST
+        ASSERT_INDEX(DB)
+    END_TEST
+
+    BEGIN_TEST("Load font C")
+        LD1(0x0, 0xC)
+        LD7(0x0)
+        RUN_TEST
+        ASSERT_INDEX(DC)
+    END_TEST
+
+    BEGIN_TEST("Load font D")
+        LD1(0x0, 0xD)
+        LD7(0x0)
+        RUN_TEST
+        ASSERT_INDEX(DD)
+    END_TEST
+
+    BEGIN_TEST("Load font E")
+        LD1(0x0, 0xE)
+        LD7(0x0)
+        RUN_TEST
+        ASSERT_INDEX(DE)
+    END_TEST
+
+    BEGIN_TEST("Load font F")
+        LD1(0x0, 0xF)
+        LD7(0x0)
+        RUN_TEST
+        ASSERT_INDEX(DF)
+    END_TEST
+
+    BEGIN_TEST("Load BCD")
+        LD1(0x0, 123)
+        LDB(0x800)
+        LD8(0x0)
+        RUN_TEST
+        ASSERT_MEM(0x800, 1)
+        ASSERT_MEM(0x801, 2)
+        ASSERT_MEM(0x802, 3)
+    END_TEST
+
+    BEGIN_TEST("Load BCD fails")
+        LD1(0x0, 1)
+        LD8(0x0)
+        RUN_TEST
+        ASSERT_MEM(0x000, 0xF0) // shouldn't overwrite first byte of 0 digit
+    END_TEST
+
     BEGIN_TEST("Load delay timer (Set/Get)")
         LD1(0x0, 60)
         LD5(0x0)
@@ -249,6 +320,56 @@ void chip8_run_tests()
         RUN_TEST
         ASSERT_DT(58)
         ASSERT_REG(0x1, 59)
+    END_TEST
+
+    BEGIN_TEST("Load vector (write)")
+        LD1(0x0, 0xF0)
+        LD1(0x1, 0x10)
+        LD1(0x2, 0x20)
+        LD1(0x3, 0x40)
+        LD1(0x4, 0x40)
+        LDB(0x800)
+        LD9(0x4)
+        RUN_TEST
+        ASSERT_MEM(0x800, 0xF0)
+        ASSERT_MEM(0x801, 0x10)
+        ASSERT_MEM(0x802, 0x20)
+        ASSERT_MEM(0x803, 0x40)
+        ASSERT_MEM(0x804, 0x40)
+    END_TEST
+
+    BEGIN_TEST("Load vector (write fails)")
+        LD9(0x4) // trys to overwrite digit 0 with zeroes
+        RUN_TEST
+        ASSERT_MEM(0x000, 0xF0)
+        ASSERT_MEM(0x001, 0x90)
+        ASSERT_MEM(0x002, 0x90)
+        ASSERT_MEM(0x003, 0x90)
+        ASSERT_MEM(0x004, 0xF0)
+    END_TEST
+
+    BEGIN_TEST("Load vector (read)")
+        LDB(D7)
+        LDA(0xE)
+        RUN_TEST
+        // digit 7
+        ASSERT_REG(0x0, 0xF0)
+        ASSERT_REG(0x1, 0x10)
+        ASSERT_REG(0x2, 0x20)
+        ASSERT_REG(0x3, 0x40)
+        ASSERT_REG(0x4, 0x40)
+        // digit 8
+        ASSERT_REG(0x5, 0xF0)
+        ASSERT_REG(0x6, 0x90)
+        ASSERT_REG(0x7, 0xF0)
+        ASSERT_REG(0x8, 0x90)
+        ASSERT_REG(0x9, 0xF0)
+        // digit 9
+        ASSERT_REG(0xA, 0xF0)
+        ASSERT_REG(0xB, 0x90)
+        ASSERT_REG(0xC, 0xF0)
+        ASSERT_REG(0xD, 0x10)
+        ASSERT_REG(0xE, 0xF0)
     END_TEST
 
     BEGIN_TEST("Add byte")
@@ -275,6 +396,14 @@ void chip8_run_tests()
         RUN_TEST
         ASSERT_REG(0x4, 0xFF)
         ASSERT_REG(0xF, 0x00)
+    END_TEST
+
+    BEGIN_TEST("Add to index")
+        LD1(0x4, 0x80)
+        LDB(0x800)
+        ADD3(0x4)
+        RUN_TEST
+        ASSERT_INDEX(0x880)
     END_TEST
 
     BEGIN_TEST("Subtract w/borrow")
@@ -375,7 +504,7 @@ static void chip8_initialize()
 {
     memset(&s_chip8, 0, sizeof(s_chip8));
     s_chip8.index = 0;
-    s_chip8.pc = 0x200;
+    s_chip8.pc = PROGRAM_START;
     s_chip8.sp = 0;
     s_chip8.speed = 10;
     s_chip8.paused = false;
@@ -605,6 +734,7 @@ static void chip8_vm_run()
             vm_break;
         }
 
+        // Keyboard instructions
         vm_case(0xE000)
         {
             vm_switch(instruction, 0x00FF)
@@ -612,12 +742,14 @@ static void chip8_vm_run()
                 vm_case(0x9E)
                 {
                     // SKP Vx
+                    s_chip8.pc += monitor_is_key_down(s_chip8.v[x]) << 1;
                     vm_break;
                 }
 
                 vm_case(0xA1)
                 {
                     // SKNP Vx
+                    s_chip8.pc += (monitor_is_key_down(s_chip8.v[x]) == 0) << 1;
                     vm_break;
                 }
             }
@@ -682,26 +814,45 @@ static void chip8_vm_run()
                 vm_case(0x33)
                 {
                     // LD B, Vx
+                    uint8_t value = s_chip8.v[x];
+                    const uint8_t ones = value % 10;
+                    value /= 10;
+                    const uint8_t tens = value % 10;
+                    value /= 10;
+                    const uint8_t hundreds = value;
+
+                    if(s_chip8.index >= PROGRAM_START)
+                    {
+                        s_chip8.ram[s_chip8.index] = hundreds;
+                        s_chip8.ram[s_chip8.index + 1] = tens;
+                        s_chip8.ram[s_chip8.index + 2] = ones;
+                    }
+
                     vm_break;
                 }
 
                 vm_case(0x55)
                 {
                     // LD [I], Vx
-                    for(uint8_t i = 0; i < x; ++i)
+                    for(uint8_t i = 0; i <= x; ++i)
                     {
-                        s_chip8.ram[s_chip8.index + i] = s_chip8.v[i];
+                        if((s_chip8.index + i) >= PROGRAM_START)
+                        {
+                            s_chip8.ram[s_chip8.index + i] = s_chip8.v[i];
+                        }
                     }
+
                     vm_break;
                 }
 
                 vm_case(0x65)
                 {
                     // LD Vx, [I]
-                    for(uint8_t i = 0; i < x; ++i)
+                    for(uint8_t i = 0; i <= x; ++i)
                     {
                         s_chip8.v[i] = s_chip8.ram[s_chip8.index + i];
                     }
+
                     vm_break;
                 }
             }

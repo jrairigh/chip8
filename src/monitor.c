@@ -67,3 +67,8 @@ bool monitor_get_key(uint8_t* outKey)
 {
     return renderer_get_key(outKey);
 }
+
+bool monitor_is_key_down(uint8_t key)
+{
+    return renderer_is_key_down(key);
+}
