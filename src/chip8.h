@@ -18,11 +18,6 @@ typedef struct Chip8
     bool paused;
 } Chip8;
 
-//#define RUN_TESTS
-#ifndef RUN_TESTS
 void chip8_run();
-#else
-void chip8_run_tests();
-#endif
 
 #endif

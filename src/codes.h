@@ -1,6 +1,26 @@
 #ifndef CODES_H
 #define CODES_H
 
+#define PROGRAM_START 0x200
+
+// Interpreter digit start at 0x000
+#define D0 0x000
+#define D1 (D0 + (5 * 1))
+#define D2 (D0 + (5 * 2))
+#define D3 (D0 + (5 * 3))
+#define D4 (D0 + (5 * 4))
+#define D5 (D0 + (5 * 5))
+#define D6 (D0 + (5 * 6))
+#define D7 (D0 + (5 * 7))
+#define D8 (D0 + (5 * 8))
+#define D9 (D0 + (5 * 9))
+#define DA (D0 + (5 * 10))
+#define DB (D0 + (5 * 11))
+#define DC (D0 + (5 * 12))
+#define DD (D0 + (5 * 13))
+#define DE (D0 + (5 * 14))
+#define DF (D0 + (5 * 15))
+
 #define ADDR(instr) ((instr) & 0x0FFF)
 #define NIBBLE(instr) ((instr) & 0x000F)
 #define X(instr) ((instr & 0x0F00) >> 8)

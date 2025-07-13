@@ -22,7 +22,7 @@ message(STATUS "C Flags: ${CMAKE_C_FLAGS}")
 file(GLOB SOURCES "src/*.c")
 
 add_executable(Chip8 ${SOURCES})
-add_executable(Chip8Tests src/main.c src/chip8.c src/monitor.c)
+add_executable(Chip8Tests src/main.c src/chip8.c src/monitor.c src/tests.c)
 
 target_link_libraries(Chip8 raylib)
 target_compile_definitions(Chip8Tests PRIVATE RUN_TESTS)
