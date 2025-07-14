@@ -3,60 +3,50 @@
 
 #include "raylib.h"
 
+#include <math.h>
 #include <string.h>
+
+#define RASTER_COLUMNS 64
+#define RASTER_ROWS 32
 
 extern Chip8 s_chip8;
 
-const int32_t SCALE = 10;
-const int32_t RASTER_COLUMNS = 64;
-const int32_t RASTER_ROWS = 32;
-static int32_t RASTER_DISPLAY[64];
+int32_t scale_x = 10;
+int32_t scale_y = 10;
+static int32_t RASTER_DISPLAY[RASTER_COLUMNS];
+static AudioStream g_tone;
 
 static void (*vm_update)();
 static void (*vm_shutdown)();
-
-static inline void draw_column(int32_t x)
-{
-    DrawRectangle(x * SCALE, 0, SCALE, SCALE, RASTER_DISPLAY[x] & 1 ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & 2 ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 2 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & 4 ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 3 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & 8 ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 4 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & 16 ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 5 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & 32 ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 6 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & 64 ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 7 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & 128 ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 8 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & 256 ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 9 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & 512 ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 10 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & 1024 ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 11 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & 2048 ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 12 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & (1 << 12) ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 13 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & (1 << 13) ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 14 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & (1 << 14) ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 15 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & (1 << 15) ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 16 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & (1 << 16) ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 17 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & (1 << 17) ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 18 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & (1 << 18) ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 19 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & (1 << 19) ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 20 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & (1 << 20) ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 21 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & (1 << 21) ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 22 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & (1 << 22) ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 23 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & (1 << 23) ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 24 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & (1 << 24) ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 25 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & (1 << 25) ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 26 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & (1 << 26) ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 27 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & (1 << 27) ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 28 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & (1 << 28) ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 29 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & (1 << 29) ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 30 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & (1 << 30) ? WHITE : BLACK);
-    DrawRectangle(x * SCALE, 31 * SCALE, SCALE, SCALE, RASTER_DISPLAY[x] & (1 << 31) ? WHITE : BLACK);
-}
+static inline void draw_column(int32_t x);
+static void audio_processor(void *bufferData, unsigned int frames);
 
 void renderer_initialize()
 {
-    InitWindow(64 * SCALE, 32 * SCALE, "Chip8 Emulator");
+    InitWindow(RASTER_COLUMNS * scale_x, RASTER_ROWS * scale_y, "Chip8 Emulator");
     SetTargetFPS(60);
     SetTraceLogLevel(LOG_ALL);
-    SetWindowState(FLAG_WINDOW_UNDECORATED);
+    SetWindowState(FLAG_WINDOW_RESIZABLE);
+    
+    InitAudioDevice();
+    g_tone = LoadAudioStream(44100, 16, 1);
+    uint16_t sin_wave[22050];
+    const size_t sin_wave_size = sizeof(sin_wave) / sizeof(sin_wave[0]);
+    for (int i = 0; i < sin_wave_size; ++i)
+    {
+        sin_wave[i] = (uint16_t)floor((32767.0 * sin(((double)i / (double)sin_wave_size) * 2.0 * PI)));
+    }
+
+    UpdateAudioStream(g_tone, sin_wave, sin_wave_size);
+    SetAudioStreamVolume(g_tone, 1.0f);
+    AttachAudioStreamProcessor(g_tone, audio_processor);
+
+    if(IsAudioStreamReady(g_tone))
+    {
+        TraceLog(LOG_INFO, "Audio stream is ready");
+        PlayAudioStream(g_tone);
+        PauseAudioStream(g_tone);
+    }
 
     memset(RASTER_DISPLAY, 0, sizeof(RASTER_DISPLAY));
 }
@@ -82,6 +72,17 @@ void renderer_do_update()
         if (IsKeyPressed(KEY_MINUS) && s_chip8.speed > 1)
         {
             s_chip8.speed /= 10;
+        }
+
+        if (IsWindowResized())
+        {
+            scale_x = GetScreenWidth() / RASTER_COLUMNS;
+            scale_y = GetScreenHeight() / RASTER_ROWS;
+        }
+
+        if (!IsAudioStreamProcessed(g_tone))
+        {
+            TraceLog(LOG_INFO, "Audio stream needs refill");
         }
 
         BeginDrawing();
@@ -114,6 +115,10 @@ void renderer_shutdown()
 {
     TraceLog(LOG_INFO, "Shutting down Chip8 VM");
     vm_shutdown();
+    DetachAudioStreamProcessor(g_tone, audio_processor);
+    UnloadAudioStream(g_tone);
+    CloseAudioDevice();
+    CloseWindow();
 }
 
 void renderer_blit(int32_t* data)
@@ -134,6 +139,28 @@ void renderer_set_shutdown_func(void (*shutdown_func)())
 void renderer_log(const char* message)
 {
     TraceLog(LOG_INFO, message);
+}
+
+void renderer_play_tone()
+{
+    if(IsAudioStreamPlaying(g_tone))
+    {
+        return;
+    }
+
+    ResumeAudioStream(g_tone);
+    TraceLog(LOG_INFO, "Playing tone");
+}
+
+void renderer_stop_tone()
+{
+    if(!IsAudioStreamPlaying(g_tone))
+    {
+        return;
+    }
+    
+    PauseAudioStream(g_tone);
+    TraceLog(LOG_INFO, "Stopping tone");
 }
 
 bool renderer_get_key(uint8_t* outKey)
@@ -320,4 +347,45 @@ bool renderer_is_key_down(uint8_t key)
     }
 
     return false;
+}
+
+static inline void draw_column(int32_t x)
+{
+    DrawRectangle(x * scale_x,  0 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & 1 ? WHITE : BLACK);
+    DrawRectangle(x * scale_x,  1 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & 2 ? WHITE : BLACK);
+    DrawRectangle(x * scale_x,  2 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & 4 ? WHITE : BLACK);
+    DrawRectangle(x * scale_x,  3 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & 8 ? WHITE : BLACK);
+    DrawRectangle(x * scale_x,  4 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & 16 ? WHITE : BLACK);
+    DrawRectangle(x * scale_x,  5 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & 32 ? WHITE : BLACK);
+    DrawRectangle(x * scale_x,  6 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & 64 ? WHITE : BLACK);
+    DrawRectangle(x * scale_x,  7 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & 128 ? WHITE : BLACK);
+    DrawRectangle(x * scale_x,  8 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & 256 ? WHITE : BLACK);
+    DrawRectangle(x * scale_x,  9 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & 512 ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 10 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & 1024 ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 11 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & 2048 ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 12 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 12) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 13 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 13) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 14 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 14) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 15 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 15) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 16 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 16) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 17 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 17) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 18 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 18) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 19 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 19) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 20 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 20) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 21 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 21) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 22 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 22) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 23 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 23) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 24 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 24) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 25 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 25) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 26 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 26) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 27 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 27) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 28 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 28) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 29 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 29) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 30 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 30) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 31 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 31) ? WHITE : BLACK);
+}
+
+void audio_processor(void *bufferData, unsigned int frames)
+{
+    TraceLog(LOG_INFO, "Audio processor called with %u frames", frames);
 }

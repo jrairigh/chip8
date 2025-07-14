@@ -4,6 +4,7 @@
         "stdbool.h": "c",
         "assert.h": "c",
         "*.m": "c",
-        "cstddef": "c"
+        "cstddef": "c",
+        "stdlib.h": "c"
     }
 }

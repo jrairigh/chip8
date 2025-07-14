@@ -11,7 +11,25 @@
 #define MONITOR_ROWS 32
 static int32_t MONITOR[MONITOR_COLUMNS];
 
-static void monitor_set_pixel(int32_t x, int32_t y, bool is_on, bool* didCollide);
+static void monitor_set_pixel(int32_t x, int32_t y, int32_t set, bool* didCollide);
+
+void monitor_initialize(void (*update_func)(), void (*shutdown_func)())
+{
+    renderer_initialize();
+    renderer_set_update_func(update_func);
+    renderer_set_shutdown_func(shutdown_func);
+    renderer_do_update();
+    renderer_shutdown();
+}
+
+#ifdef CHIP8_NOLOG
+void monitor_log(const char* text) {(void)text;}
+#else
+void monitor_log(const char* text)
+{
+    renderer_log(text);
+}
+#endif
 
 void monitor_clear()
 {
@@ -32,17 +50,12 @@ void monitor_draw_sprite(int32_t x, int32_t y, uint8_t* sprite, uint32_t sprite_
         monitor_set_pixel(x + 6, y + i, (row & 0x02) >> 1, didCollide);
         monitor_set_pixel(x + 7, y + i, (row & 0x01) >> 0, didCollide);
     }
-
+    
     renderer_blit(MONITOR);
 }
 
-static void monitor_set_pixel(int32_t x, int32_t y, bool is_on, bool* didCollide)
+static void monitor_set_pixel(int32_t x, int32_t y, int32_t set, bool* didCollide)
 {
-    if(!is_on)
-    {
-        return;
-    }
-
     if(x < 0)
     {
         x += MONITOR_COLUMNS;
@@ -61,7 +74,7 @@ static void monitor_set_pixel(int32_t x, int32_t y, bool is_on, bool* didCollide
         y -= MONITOR_ROWS;
     }
 
-    MONITOR[x] ^= (1 << y);
+    MONITOR[x] ^= (set << y);
     *didCollide = (MONITOR[x] & (1 << y)) == 0;
 }
 
@@ -73,4 +86,14 @@ bool monitor_get_key(uint8_t* outKey)
 bool monitor_is_key_down(uint8_t key)
 {
     return renderer_is_key_down(key);
+}
+
+void monitor_play_tone()
+{
+    renderer_play_tone();
+}
+
+void monitor_stop_tone()
+{
+    renderer_stop_tone();
 }

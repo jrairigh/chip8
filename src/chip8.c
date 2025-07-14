@@ -26,11 +26,7 @@ void chip8_run(const char* rom)
 {
     chip8_initialize();
     chip8_load_rom(rom);
-    renderer_initialize();
-    renderer_set_update_func(chip8_cycle);
-    renderer_set_shutdown_func(chip8_shutdown);
-    renderer_do_update();
-    renderer_shutdown();
+    monitor_initialize(chip8_cycle, chip8_shutdown);
 }
 #else
 void chip8_run_tests();
@@ -88,6 +84,11 @@ void chip8_cycle()
     if(s_chip8.sound_timer > 0)
     {
         --s_chip8.sound_timer;
+        monitor_play_tone();
+    }
+    else
+    {
+        monitor_stop_tone();
     }
 }
 
@@ -108,7 +109,7 @@ void chip8_vm_run()
                 vm_case(0xE0)
                 {
                     // CLS
-                    renderer_log("CLS");
+                    monitor_log("CLS");
                     monitor_clear();
                     vm_break;
                 }
@@ -116,7 +117,7 @@ void chip8_vm_run()
                 vm_case(0xEE)
                 {
                     // RET
-                    renderer_log("RET");
+                    monitor_log("RET");
                     s_chip8.pc = s_chip8.stack[s_chip8.sp];
                     s_chip8.sp--;
                     vm_break;
@@ -125,7 +126,7 @@ void chip8_vm_run()
                 vm_default
                 {
                     // halt
-                    //renderer_log("HALTED");
+                    monitor_log("HALTED");
                     pc_inc = 0;
                     vm_break;
                 }
@@ -137,7 +138,7 @@ void chip8_vm_run()
         vm_case(0x1000)
         {
             // JP addr
-            //renderer_log("JP");
+            monitor_log("JP");
             pc_inc = 0;
             s_chip8.pc = ADDR(instruction);
             vm_break;
@@ -146,7 +147,7 @@ void chip8_vm_run()
         vm_case(0x2000)
         {
             // CALL addr
-            renderer_log("CALL");
+            monitor_log("CALL");
             pc_inc = 0;
             s_chip8.sp++;
             s_chip8.stack[s_chip8.sp] = s_chip8.pc;
@@ -157,7 +158,7 @@ void chip8_vm_run()
         vm_case(0x3000)
         {
             // SE Vx, byte
-            renderer_log("SE1");
+            monitor_log("SE1");
             s_chip8.pc += (uint16_t)(s_chip8.v[x] == BYTE(instruction)) << 1;
             vm_break;
         }
@@ -165,7 +166,7 @@ void chip8_vm_run()
         vm_case(0x4000)
         {
             // SNE Vx, byte
-            renderer_log("SNE1");
+            monitor_log("SNE1");
             s_chip8.pc += (uint16_t)(s_chip8.v[x] != BYTE(instruction)) << 1;
             vm_break;
         }
@@ -173,7 +174,7 @@ void chip8_vm_run()
         vm_case(0x5000)
         {
             // SE Vx, Vy
-            renderer_log("SE2");
+            monitor_log("SE2");
             s_chip8.pc += (uint16_t)(s_chip8.v[x] == s_chip8.v[y]) << 1;
             vm_break;
         }
@@ -181,7 +182,7 @@ void chip8_vm_run()
         vm_case(0x6000)
         {
             // LD Vx, byte
-            renderer_log("LD1");
+            monitor_log("LD1");
             s_chip8.v[x] = BYTE(instruction);
             vm_break;
         }
@@ -189,7 +190,7 @@ void chip8_vm_run()
         vm_case(0x7000)
         {
             // ADD Vx, byte
-            renderer_log("ADD1");
+            monitor_log("ADD1");
             s_chip8.v[x] += BYTE(instruction);
             vm_break;
         }
@@ -201,7 +202,7 @@ void chip8_vm_run()
                 vm_case(0x0)
                 {
                     // LD Vx, Vy
-                    renderer_log("LD2");
+                    monitor_log("LD2");
                     s_chip8.v[x] = s_chip8.v[y];
                     vm_break;
                 }
@@ -209,7 +210,7 @@ void chip8_vm_run()
                 vm_case(0x1)
                 {
                     // OR Vx, Vy
-                    renderer_log("OR");
+                    monitor_log("OR");
                     s_chip8.v[x] |= s_chip8.v[y];
                     vm_break;
                 }
@@ -217,7 +218,7 @@ void chip8_vm_run()
                 vm_case(0x2)
                 {
                     // AND Vx, Vy
-                    renderer_log("OR");
+                    monitor_log("OR");
                     s_chip8.v[x] &= s_chip8.v[y];
                     vm_break;
                 }
@@ -225,7 +226,7 @@ void chip8_vm_run()
                 vm_case(0x3)
                 {
                     // XOR Vx, Vy
-                    renderer_log("XOR");
+                    monitor_log("XOR");
                     s_chip8.v[x] ^= s_chip8.v[y];
                     vm_break;
                 }
@@ -233,7 +234,7 @@ void chip8_vm_run()
                 vm_case(0x4)
                 {
                     // ADD Vx, Vy
-                    renderer_log("ADD2");
+                    monitor_log("ADD2");
                     const uint8_t max_value = 0xFF - s_chip8.v[x];
                     s_chip8.v[0xF] = max_value < s_chip8.v[y]; // Set carry flag
                     s_chip8.v[x] += s_chip8.v[y];
@@ -243,7 +244,7 @@ void chip8_vm_run()
                 vm_case(0x5)
                 {
                     // SUB Vx, Vy
-                    renderer_log("SUB");
+                    monitor_log("SUB");
                     s_chip8.v[0xF] = s_chip8.v[x] > s_chip8.v[y]; // Set borrow flag
                     s_chip8.v[x] -= s_chip8.v[y];
                     vm_break;
@@ -252,7 +253,7 @@ void chip8_vm_run()
                 vm_case(0x6)
                 {
                     // SHR Vx {, Vy}
-                    renderer_log("SHR");
+                    monitor_log("SHR");
                     s_chip8.v[0xF] = s_chip8.v[x] & 0x1; // Set carry flag
                     s_chip8.v[x] >>= 1;
                     vm_break;
@@ -261,7 +262,7 @@ void chip8_vm_run()
                 vm_case(0x7)
                 {
                     // SUBN Vx, Vy
-                    renderer_log("SUBN");
+                    monitor_log("SUBN");
                     s_chip8.v[0xF] = s_chip8.v[y] > s_chip8.v[x]; // Set borrow flag
                     s_chip8.v[x] = s_chip8.v[y] - s_chip8.v[x];
                     vm_break;
@@ -270,7 +271,7 @@ void chip8_vm_run()
                 vm_case(0xE)
                 {
                     // SHL Vx {, Vy}
-                    renderer_log("SHL");
+                    monitor_log("SHL");
                     s_chip8.v[0xF] = (s_chip8.v[x] & 0x80) > 0; // Set carry flag
                     s_chip8.v[x] <<= 1;
                     vm_break;
@@ -282,7 +283,7 @@ void chip8_vm_run()
         vm_case(0x9000)
         {
             // SNE Vx, Vy
-            renderer_log("SNE2");
+            monitor_log("SNE2");
             s_chip8.pc += (uint16_t)(s_chip8.v[x] != s_chip8.v[y]) << 1;
             vm_break;
         }
@@ -290,7 +291,7 @@ void chip8_vm_run()
         vm_case(0xA000)
         {
             // LD I, addr
-            renderer_log("LDB");
+            monitor_log("LDB");
             s_chip8.index = ADDR(instruction);
             vm_break;
         }
@@ -298,7 +299,7 @@ void chip8_vm_run()
         vm_case(0xB000)
         {
             // JP V0, addr
-            renderer_log("JP1");
+            monitor_log("JP1");
             pc_inc = 0;
             s_chip8.pc = ADDR(instruction) + s_chip8.v[0];
             vm_break;
@@ -307,7 +308,7 @@ void chip8_vm_run()
         vm_case(0xC000)
         {
             // RND Vx, byte
-            renderer_log("RND");
+            monitor_log("RND");
             s_chip8.v[x] = (rand() % 256) & BYTE(instruction);
             vm_break;
         }
@@ -315,7 +316,7 @@ void chip8_vm_run()
         vm_case(0xD000)
         {
             // DRW Vx, Vy, nibble
-            renderer_log("DRW");
+            monitor_log("DRW");
             monitor_draw_sprite(s_chip8.v[x], s_chip8.v[y], s_chip8.ram + s_chip8.index, NIBBLE(instruction), (bool*)&s_chip8.v[0xF]);
             vm_break;
         }
@@ -328,7 +329,7 @@ void chip8_vm_run()
                 vm_case(0x9E)
                 {
                     // SKP Vx
-                    renderer_log("SKP");
+                    monitor_log("SKP");
                     s_chip8.pc += monitor_is_key_down(s_chip8.v[x]) << 1;
                     vm_break;
                 }
@@ -336,7 +337,7 @@ void chip8_vm_run()
                 vm_case(0xA1)
                 {
                     // SKNP Vx
-                    renderer_log("SKNP");
+                    monitor_log("SKNP");
                     s_chip8.pc += (monitor_is_key_down(s_chip8.v[x]) == 0) << 1;
                     vm_break;
                 }
@@ -352,7 +353,7 @@ void chip8_vm_run()
                 vm_case(0x07)
                 {
                     // LD Vx, DT
-                    renderer_log("LD6");
+                    monitor_log("LD6");
                     s_chip8.v[x] = s_chip8.delay_timer;
                     vm_break;
                 }
@@ -360,7 +361,7 @@ void chip8_vm_run()
                 vm_case(0x0A)
                 {
                     // LD Vx, K
-                    renderer_log("LD3");
+                    monitor_log("LD3");
                     uint8_t key;
                     bool is_pressed = monitor_get_key(&key);
                     pc_inc = 0;
@@ -376,7 +377,7 @@ void chip8_vm_run()
                 vm_case(0x15)
                 {
                     // LD DT, Vx
-                    renderer_log("LD5");
+                    monitor_log("LD5");
                     s_chip8.delay_timer = s_chip8.v[x];
                     vm_break;
                 }
@@ -384,7 +385,7 @@ void chip8_vm_run()
                 vm_case(0x18)
                 {
                     // LD ST, Vx
-                    renderer_log("LD4");
+                    monitor_log("LD4");
                     s_chip8.sound_timer = s_chip8.v[x];
                     vm_break;
                 }
@@ -392,7 +393,7 @@ void chip8_vm_run()
                 vm_case(0x1E)
                 {
                     // ADD I, Vx
-                    renderer_log("ADD3");
+                    monitor_log("ADD3");
                     s_chip8.index += (uint16_t)s_chip8.v[x];
                     vm_break;
                 }
@@ -400,7 +401,7 @@ void chip8_vm_run()
                 vm_case(0x29)
                 {
                     // LD F, Vx
-                    renderer_log("LD7");
+                    monitor_log("LD7");
                     s_chip8.index = D0 + NIBBLE(s_chip8.v[x]) * 5;
                     vm_break;
                 }
@@ -408,7 +409,7 @@ void chip8_vm_run()
                 vm_case(0x33)
                 {
                     // LD B, Vx
-                    renderer_log("LD8");
+                    monitor_log("LD8");
                     uint8_t value = s_chip8.v[x];
                     const uint8_t ones = value % 10;
                     value /= 10;
@@ -429,7 +430,7 @@ void chip8_vm_run()
                 vm_case(0x55)
                 {
                     // LD [I], Vx
-                    renderer_log("LD9");
+                    monitor_log("LD9");
                     for(uint8_t i = 0; i <= x; ++i)
                     {
                         if((s_chip8.index + i) >= PROGRAM_START)
@@ -444,7 +445,7 @@ void chip8_vm_run()
                 vm_case(0x65)
                 {
                     // LD Vx, [I]
-                    renderer_log("LDA");
+                    monitor_log("LDA");
                     for(uint8_t i = 0; i <= x; ++i)
                     {
                         s_chip8.v[i] = s_chip8.ram[s_chip8.index + i];
@@ -468,7 +469,7 @@ void chip8_shutdown()
 
 static void chip8_load_rom(const char* rom_path)
 {
-#define TEST_PROGRAM
+//#define TEST_PROGRAM
 #ifdef TEST_PROGRAM
 #include "program.h"
     memcpy(&s_chip8.ram[s_chip8.pc], program, sizeof(program));

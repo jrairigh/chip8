@@ -4,7 +4,9 @@ param(
     [ValidateSet("Debug", "Release")]
     [string]$Config,
     [Parameter(Mandatory = $false)]
-    [bool]$Clean = $false
+    [bool]$Clean = $false,
+    [Parameter(Mandatory = $false)]
+    [bool]$Log = $false
 )
 
 if ($Clean) {
@@ -19,6 +21,11 @@ if($Config -eq "Debug") {
 } else {
     Write-Host "Configuring for Release build"
     $C_FLAGS += "-DNDEBUG=1"
+}
+
+if($Log -eq $false) {
+    Write-Host "Disabling Chip8 VM logging"
+    $C_FLAGS += "-DCHIP8_NOLOG"
 }
 
 $BuildDir = @("build", $Config) -join "-"
