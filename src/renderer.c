@@ -13,6 +13,7 @@ const int32_t RASTER_ROWS = 32;
 static int32_t RASTER_DISPLAY[64];
 
 static void (*vm_update)();
+static void (*vm_shutdown)();
 
 static inline void draw_column(int32_t x)
 {
@@ -55,6 +56,7 @@ void renderer_initialize()
     InitWindow(64 * SCALE, 32 * SCALE, "Chip8 Emulator");
     SetTargetFPS(60);
     SetTraceLogLevel(LOG_ALL);
+    SetWindowState(FLAG_WINDOW_UNDECORATED);
 
     memset(RASTER_DISPLAY, 0, sizeof(RASTER_DISPLAY));
 }
@@ -110,6 +112,8 @@ void renderer_do_update()
 
 void renderer_shutdown()
 {
+    TraceLog(LOG_INFO, "Shutting down Chip8 VM");
+    vm_shutdown();
 }
 
 void renderer_blit(int32_t* data)
@@ -120,6 +124,11 @@ void renderer_blit(int32_t* data)
 void renderer_set_update_func(void (*update_func)())
 {
     vm_update = update_func;
+}
+
+void renderer_set_shutdown_func(void (*shutdown_func)())
+{
+    vm_shutdown = shutdown_func;
 }
 
 void renderer_log(const char* message)

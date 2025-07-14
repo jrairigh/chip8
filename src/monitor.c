@@ -2,14 +2,16 @@
 #include "renderer.h"
 
 #include <assert.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
 
-const int MONITOR_COLUMNS = 64;
-const int MONITOR_ROWS = 32;
-static int MONITOR[64];
+#define MONITOR_COLUMNS 64
+#define MONITOR_ROWS 32
+static int32_t MONITOR[MONITOR_COLUMNS];
 
-static void monitor_set_pixel(int x, int y, bool is_on, bool* didCollide);
+static void monitor_set_pixel(int32_t x, int32_t y, bool is_on, bool* didCollide);
 
 void monitor_clear()
 {
@@ -34,7 +36,7 @@ void monitor_draw_sprite(int32_t x, int32_t y, uint8_t* sprite, uint32_t sprite_
     renderer_blit(MONITOR);
 }
 
-static void monitor_set_pixel(int x, int y, bool is_on, bool* didCollide)
+static void monitor_set_pixel(int32_t x, int32_t y, bool is_on, bool* didCollide)
 {
     if(!is_on)
     {
