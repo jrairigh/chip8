@@ -8,9 +8,16 @@
 
 #define RASTER_COLUMNS 64
 #define RASTER_ROWS 32
+#define MAX_SAMPLES 512
+#define MAX_SAMPLES_PER_UPDATE 4096
 
 extern Chip8 s_chip8;
 
+const float AudioFrequency = 440.0f;
+const uint32_t SampleRate = 44100;
+const uint32_t SampleSize = 16;
+const uint32_t Channels = 1;
+float sineIdx = 0.0f;
 int32_t scale_x = 15;
 int32_t scale_y = 15;
 static int32_t RASTER_DISPLAY[RASTER_COLUMNS];
@@ -19,7 +26,7 @@ static AudioStream g_tone;
 static void (*vm_update)();
 static void (*vm_shutdown)();
 static inline void draw_column(int32_t x);
-static void audio_processor(void *bufferData, unsigned int frames);
+static void audio_processor(void *bufferData, uint32_t frames);
 
 void renderer_initialize()
 {
@@ -29,17 +36,11 @@ void renderer_initialize()
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     
     InitAudioDevice();
-    g_tone = LoadAudioStream(44100, 16, 1);
-    int16_t sin_wave[44100];
-    const size_t sin_wave_size = sizeof(sin_wave) / sizeof(sin_wave[0]);
-    for (int i = 0; i < sin_wave_size; ++i)
-    {
-        sin_wave[i] = (int16_t)floor((32767.0 * sin(((double)i / (double)sin_wave_size) * 2.0 * PI)));
-    }
+    SetAudioStreamBufferSizeDefault(MAX_SAMPLES_PER_UPDATE);
+    g_tone = LoadAudioStream(SampleRate, SampleSize, Channels);
+    SetAudioStreamCallback(g_tone, audio_processor);
 
-    UpdateAudioStream(g_tone, sin_wave, 10);
     SetAudioStreamVolume(g_tone, 1.0f);
-    AttachAudioStreamProcessor(g_tone, audio_processor);
 
     if(IsAudioStreamReady(g_tone))
     {
@@ -80,11 +81,6 @@ void renderer_do_update()
             scale_y = GetScreenHeight() / RASTER_ROWS;
         }
 
-        if (!IsAudioStreamProcessed(g_tone))
-        {
-            TraceLog(LOG_INFO, "Audio stream needs refill");
-        }
-
         BeginDrawing();
         ClearBackground(BLACK);
 
@@ -115,7 +111,6 @@ void renderer_shutdown()
 {
     TraceLog(LOG_INFO, "Shutting down Chip8 VM");
     vm_shutdown();
-    DetachAudioStreamProcessor(g_tone, audio_processor);
     UnloadAudioStream(g_tone);
     CloseAudioDevice();
     CloseWindow();
@@ -385,7 +380,18 @@ static inline void draw_column(int32_t x)
     DrawRectangle(x * scale_x, 31 * scale_y, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 31) ? WHITE : BLACK);
 }
 
-void audio_processor(void *bufferData, unsigned int frames)
+void audio_processor(void *buffer, uint32_t frames)
 {
-    TraceLog(LOG_INFO, "Audio processor called with %u frames", frames);
+    const float incr = AudioFrequency/ (float)SampleRate;
+    int16_t *d = (int16_t *)buffer;
+
+    for (uint32_t i = 0; i < frames; i++)
+    {
+        d[i] = (int16_t)(32000.0f*sinf(2*PI*sineIdx));
+        sineIdx += incr;
+        if (sineIdx > 1.0f)
+        {
+            sineIdx -= 1.0f;
+        }
+    }
 }
