@@ -1,10 +1,12 @@
 #include "codes.h"
 #include "chip8.h"
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
 
+void chip8_load_program(uint16_t* program, size_t program_size);
 void chip8_initialize();
 void chip8_cycle();
 
@@ -18,8 +20,8 @@ extern Chip8 s_chip8;
     uint16_t program[] = {
 
 #define RUN_TEST }; \
-    memcpy(&s_chip8.ram[PROGRAM_START], program, sizeof(program)); \
-    while((*(uint16_t*)&s_chip8.ram[s_chip8.pc]) != 0x0000) \
+    chip8_load_program(program, sizeof(program) / sizeof(uint16_t));\
+    while(!s_chip8.halted) \
         chip8_cycle(); \
     bool passed = true;
     
@@ -36,7 +38,7 @@ extern Chip8 s_chip8;
     if(passed) { \
         passed_tests++; \
     } \
-    printf("Test %-35s %s\n", test_name, passed ? "PASSED" : "FAILED");}
+    printf("Test %s\n%s\n", test_name, passed ? "PASSED" : "FAILED");}
 
 void chip8_run_tests()
 {
@@ -45,34 +47,34 @@ void chip8_run_tests()
     BEGIN_TEST("Jump to address")
         JP(0x300)
         RUN_TEST
-        ASSERT_PC(0x300)
+        ASSERT_PC(0x302)
     END_TEST
 
     BEGIN_TEST("Jump w/offset")
         LD1(0x0, 2)
         JP1(0x300)
         RUN_TEST
-        ASSERT_PC(0x302)
+        ASSERT_PC(0x304)
     END_TEST
 
     BEGIN_TEST("Return")
-        CALL(0x208)
-        0, /*0x202 */
-        0, /*0x204 */
-        0, /*0x206*/
+        CALL(PROGRAM_START + 8)
+        0, /*Cause HALT*/
+        0,
+        0,
         RET
         RUN_TEST
-        ASSERT_PC(0x202)
-        ASSERT_STACK(1, PROGRAM_START)
+        ASSERT_PC(PROGRAM_START + 2 + 2)
+        ASSERT_STACK(0, 0)
         ASSERT_SP(0)
     END_TEST
 
     BEGIN_TEST("Call")
-        CALL(0xFFE)
+        CALL(0x800)
         RUN_TEST
         ASSERT_SP(1)
-        ASSERT_STACK(1, PROGRAM_START)
-        ASSERT_PC(0xFFE)
+        ASSERT_STACK(0, PROGRAM_START + 2)
+        ASSERT_PC(0x800 + 2)
     END_TEST
 
     BEGIN_TEST("Skip Next (x == byte) Case 1")
@@ -276,7 +278,7 @@ void chip8_run_tests()
         LD5(0x0)
         LD6(0x1)
         RUN_TEST
-        ASSERT_DT(58)
+        ASSERT_DT(57)
         ASSERT_REG(0x1, 59)
     END_TEST
 

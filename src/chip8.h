@@ -15,6 +15,7 @@ typedef struct Chip8
     uint8_t delay_timer;
     uint8_t sound_timer;
     uint32_t speed;
+    bool halted;
     bool paused;
 } Chip8;
 

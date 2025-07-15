@@ -14,12 +14,12 @@
 
 Chip8 s_chip8;
 
-static bool is_big_endian();
 static void chip8_load_rom(const char* rom_path);
+static void chip8_vm_run(const uint16_t instruction);
+static void chip8_shutdown();
 void chip8_initialize();
 void chip8_cycle();
-void chip8_vm_run();
-void chip8_shutdown();
+void chip8_load_program(uint16_t* program, size_t program_size);
 
 #ifndef RUN_TESTS
 void chip8_run(const char* rom)
@@ -44,6 +44,7 @@ void chip8_initialize()
     s_chip8.pc = PROGRAM_START;
     s_chip8.sp = 0;
     s_chip8.speed = 10;
+    s_chip8.halted = false;
     s_chip8.paused = false;
 
     // Store font set into interpreter area of memory (0x000 to 0x1FF)
@@ -71,9 +72,16 @@ void chip8_initialize()
 
 void chip8_cycle()
 {
+    if(s_chip8.halted || s_chip8.paused)
+    {
+        return;
+    }
+
     for(int32_t i = 0; i < s_chip8.speed; ++i)
     {
-        chip8_vm_run();
+        const uint16_t upper = (uint16_t)s_chip8.ram[s_chip8.pc];
+        const uint16_t lower = (uint16_t)s_chip8.ram[s_chip8.pc + 1];
+        chip8_vm_run((upper << 8) | lower);
     }
 
     if(s_chip8.delay_timer > 0)
@@ -92,11 +100,22 @@ void chip8_cycle()
     }
 }
 
-void chip8_vm_run()
+void chip8_load_program(uint16_t* program, size_t program_size)
+{
+    for(size_t i = 0, j = 0; i < program_size; ++i, j += 2)
+    {
+        const uint16_t instruction = program[i];
+        const uint8_t lower = (uint8_t)(instruction & 0xFF);
+        const uint8_t upper = (uint8_t)((instruction & 0xFF00) >> 8);
+        s_chip8.ram[s_chip8.pc + j] = upper;
+        s_chip8.ram[s_chip8.pc + j + 1] = lower;
+    }
+}
+
+static void chip8_vm_run(const uint16_t instruction)
 {
     assert((s_chip8.pc & 0x1) == 0); // Ensure PC is even
-    const uint16_t instruction = *(uint16_t*)(s_chip8.ram + s_chip8.pc);
-    uint16_t pc_inc = 2;
+    s_chip8.pc += 2;
     const uint8_t x = X(instruction);
     const uint8_t y = Y(instruction);
 
@@ -118,16 +137,17 @@ void chip8_vm_run()
                 {
                     // RET
                     monitor_log("RET");
-                    s_chip8.pc = s_chip8.stack[s_chip8.sp];
                     s_chip8.sp--;
+                    s_chip8.pc = s_chip8.stack[s_chip8.sp];
+                    s_chip8.stack[s_chip8.sp] = 0;
                     vm_break;
                 }
 
                 vm_default
                 {
                     // halt
-                    monitor_log("HALTED");
-                    pc_inc = 0;
+                    monitor_log("HALTED 0x0000");
+                    s_chip8.halted = true;
                     vm_break;
                 }
             }
@@ -139,7 +159,6 @@ void chip8_vm_run()
         {
             // JP addr
             monitor_log("JP");
-            pc_inc = 0;
             s_chip8.pc = ADDR(instruction);
             vm_break;
         }
@@ -148,9 +167,8 @@ void chip8_vm_run()
         {
             // CALL addr
             monitor_log("CALL");
-            pc_inc = 0;
-            s_chip8.sp++;
             s_chip8.stack[s_chip8.sp] = s_chip8.pc;
+            s_chip8.sp++;
             s_chip8.pc = ADDR(instruction);
             vm_break;
         }
@@ -218,7 +236,7 @@ void chip8_vm_run()
                 vm_case(0x2)
                 {
                     // AND Vx, Vy
-                    monitor_log("OR");
+                    monitor_log("AND");
                     s_chip8.v[x] &= s_chip8.v[y];
                     vm_break;
                 }
@@ -276,6 +294,14 @@ void chip8_vm_run()
                     s_chip8.v[x] <<= 1;
                     vm_break;
                 }
+
+                vm_default
+                {
+                    // halt
+                    monitor_log("HALTED 0x8000");
+                    s_chip8.halted = true;
+                    vm_break;
+                }
             }
             vm_break;
         }
@@ -300,7 +326,6 @@ void chip8_vm_run()
         {
             // JP V0, addr
             monitor_log("JP1");
-            pc_inc = 0;
             s_chip8.pc = ADDR(instruction) + s_chip8.v[0];
             vm_break;
         }
@@ -317,6 +342,7 @@ void chip8_vm_run()
         {
             // DRW Vx, Vy, nibble
             monitor_log("DRW");
+            s_chip8.v[0xF] = 0; // Clear collision flag
             monitor_draw_sprite(s_chip8.v[x], s_chip8.v[y], s_chip8.ram + s_chip8.index, NIBBLE(instruction), (bool*)&s_chip8.v[0xF]);
             vm_break;
         }
@@ -330,7 +356,7 @@ void chip8_vm_run()
                 {
                     // SKP Vx
                     monitor_log("SKP");
-                    s_chip8.pc += monitor_is_key_down(s_chip8.v[x]) << 1;
+                    s_chip8.pc += (uint16_t)(monitor_is_key_down(s_chip8.v[x])) << 1;
                     vm_break;
                 }
                 
@@ -338,7 +364,15 @@ void chip8_vm_run()
                 {
                     // SKNP Vx
                     monitor_log("SKNP");
-                    s_chip8.pc += (monitor_is_key_down(s_chip8.v[x]) == 0) << 1;
+                    s_chip8.pc += (uint16_t)(monitor_is_key_down(s_chip8.v[x]) == 0) << 1;
+                    vm_break;
+                }
+
+                vm_default
+                {
+                    // halt
+                    monitor_log("HALTED 0xE000");
+                    s_chip8.halted = true;
                     vm_break;
                 }
             }
@@ -362,13 +396,13 @@ void chip8_vm_run()
                 {
                     // LD Vx, K
                     monitor_log("LD3");
+                    s_chip8.paused = true;
                     uint8_t key;
                     bool is_pressed = monitor_get_key(&key);
-                    pc_inc = 0;
                     if(is_pressed)
                     {
                         s_chip8.v[x] = key;
-                        pc_inc = 2;
+                        s_chip8.paused = false;
                     }
                     
                     vm_break;
@@ -410,18 +444,20 @@ void chip8_vm_run()
                 {
                     // LD B, Vx
                     monitor_log("LD8");
-                    uint8_t value = s_chip8.v[x];
+                    const uint8_t value = s_chip8.v[x];
                     const uint8_t ones = value % 10;
-                    value /= 10;
-                    const uint8_t tens = value % 10;
-                    value /= 10;
-                    const uint8_t hundreds = value;
+                    const uint8_t tens = (value % 100) / 10;
+                    const uint8_t hundreds = value / 100;
                     
                     if(s_chip8.index >= PROGRAM_START)
                     {
                         s_chip8.ram[s_chip8.index] = hundreds;
                         s_chip8.ram[s_chip8.index + 1] = tens;
                         s_chip8.ram[s_chip8.index + 2] = ones;
+                    }
+                    else
+                    {
+                        monitor_log("LD8 failed: index out of bounds");
                     }
                     
                     vm_break;
@@ -436,6 +472,10 @@ void chip8_vm_run()
                         if((s_chip8.index + i) >= PROGRAM_START)
                         {
                             s_chip8.ram[s_chip8.index + i] = s_chip8.v[i];
+                        }
+                        else
+                        {
+                            monitor_log("LD9 failed: index out of bounds");
                         }
                     }
                     
@@ -453,16 +493,30 @@ void chip8_vm_run()
 
                     vm_break;
                 }
+
+                vm_default
+                {
+                    // halt
+                    monitor_log("HALTED 0xF000");
+                    s_chip8.halted = true;
+                    vm_break;
+                }
             }
 
             vm_break;
         }
-    }
 
-    s_chip8.pc += pc_inc;
+        vm_default
+        {
+            // halt
+            monitor_log("HALTED");
+            s_chip8.halted = true;
+            vm_break;
+        }
+    }
 }
 
-void chip8_shutdown()
+static void chip8_shutdown()
 {
     printf("Shutdown chip8 emulation\n");
 }
@@ -472,7 +526,7 @@ static void chip8_load_rom(const char* rom_path)
 //#define TEST_PROGRAM
 #ifdef TEST_PROGRAM
 #include "program.h"
-    memcpy(&s_chip8.ram[s_chip8.pc], program, sizeof(program));
+    chip8_copy_bytes_to_ram(program, sizeof(program));
 #else
     FILE* rom = fopen(rom_path, "rb");
     uint8_t* write_ptr = &s_chip8.ram[s_chip8.pc];
@@ -507,34 +561,6 @@ static void chip8_load_rom(const char* rom_path)
         }
         
         fclose(rom);
-        
-        //printf("Writing ROM copy\n");
-        //FILE* out = fopen("ROM_COPY", "wb");
-        //fwrite(&s_chip8.ram[s_chip8.pc], sizeof(uint8_t), rom_size, out);
-        //fclose(out);
-    }
-    
-    if(is_big_endian())
-    {
-        printf("Big endian architecture\n");
-    }
-    else
-    {
-        printf("Little endian architecture\n");
-        assert(rom_size % 2 == 0);
-        for (size_t i = 0; i + 1 < rom_size; i += 2) 
-        {
-            const uint8_t tmp = s_chip8.ram[s_chip8.pc + i];
-            s_chip8.ram[s_chip8.pc + i] = s_chip8.ram[s_chip8.pc + i + 1];
-            s_chip8.ram[s_chip8.pc + i + 1] = tmp;
-        }
     }
 #endif
-}
-
-static bool is_big_endian()
-{
-    const uint16_t value = 0x0001;
-    const uint8_t* bytes = (const uint8_t*)&value;
-    return bytes[0] == 0 && bytes[1] == 1;
 }

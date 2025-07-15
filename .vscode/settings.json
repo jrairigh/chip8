@@ -5,6 +5,7 @@
         "assert.h": "c",
         "*.m": "c",
         "cstddef": "c",
-        "stdlib.h": "c"
+        "stdlib.h": "c",
+        "program.h": "c"
     }
 }
