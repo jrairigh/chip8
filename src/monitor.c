@@ -13,23 +13,20 @@ static int32_t MONITOR[MONITOR_COLUMNS];
 
 static void monitor_set_pixel(int32_t x, int32_t y, int32_t set, bool* didCollide);
 
-void monitor_initialize(void (*update_func)(), void (*shutdown_func)())
+void monitor_initialize(void (*init_func)(const char*), void (*update_func)(), void (*shutdown_func)())
 {
     renderer_initialize();
+    renderer_set_init_func(init_func);
     renderer_set_update_func(update_func);
     renderer_set_shutdown_func(shutdown_func);
     renderer_do_update();
     renderer_shutdown();
 }
 
-#ifdef CHIP8_NOLOG
-void monitor_log(const char* text) {(void)text;}
-#else
-void monitor_log(const char* text)
+void monitor_log(LogLevel level, const char* text)
 {
-    renderer_log(text);
+    renderer_log((int)level, text);
 }
-#endif
 
 void monitor_clear()
 {

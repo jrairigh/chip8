@@ -6,6 +6,13 @@
         "*.m": "c",
         "cstddef": "c",
         "stdlib.h": "c",
-        "program.h": "c"
+        "program.h": "c",
+        "bit": "c",
+        "compare": "c",
+        "limits": "c",
+        "memory": "c",
+        "type_traits": "c",
+        "vector": "c",
+        "xutility": "c"
     }
 }

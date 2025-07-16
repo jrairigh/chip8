@@ -19,6 +19,6 @@ typedef struct Chip8
     bool paused;
 } Chip8;
 
-void chip8_run(const char* rom);
+void chip8_run();
 
 #endif

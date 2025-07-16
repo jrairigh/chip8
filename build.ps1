@@ -1,12 +1,13 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)]
+    [Parameter(Mandatory = $false)]
     [ValidateSet("Debug", "Release")]
-    [string]$Config,
+    [string]$Config = "Release",
     [Parameter(Mandatory = $false)]
     [bool]$Clean = $false,
     [Parameter(Mandatory = $false)]
-    [bool]$Log = $false
+    [ValidateSet("debug", "info", "warn", "error")]
+    [string]$Log = "info"
 )
 
 if ($Clean) {
@@ -23,9 +24,12 @@ if($Config -eq "Debug") {
     $C_FLAGS += "-DNDEBUG=1"
 }
 
-if($Log -eq $false) {
-    Write-Host "Disabling Chip8 VM logging"
-    $C_FLAGS += "-DCHIP8_NOLOG"
+switch ($Log) {
+    "debug" { $C_FLAGS += "-DCHIP8_LOGLEVEL=0"; Write-Host "Log level: debug" }
+    "info"  { $C_FLAGS += "-DCHIP8_LOGLEVEL=1"; Write-Host "Log level: info" }
+    "warn"  { $C_FLAGS += "-DCHIP8_LOGLEVEL=2"; Write-Host "Log level: warn" }
+    "error" { $C_FLAGS += "-DCHIP8_LOGLEVEL=3"; Write-Host "Log level: error" }
+    default { Write-Host "Unknown log level: $Log" }
 }
 
 $BuildDir = @("build", $Config) -join "-"

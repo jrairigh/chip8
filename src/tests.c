@@ -7,13 +7,13 @@
 #include <string.h>
 
 void chip8_load_program(uint16_t* program, size_t program_size);
-void chip8_initialize();
+void chip8_initialize(const char* rom);
 void chip8_cycle();
 
 extern Chip8 s_chip8;
 
 #define BEGIN_TEST(name) { \
-    chip8_initialize(); \
+    chip8_initialize(""); \
     s_chip8.speed = 1; \
     total_tests++; \
     const char* test_name = name; \

@@ -2,7 +2,6 @@
 
 int main(int argc, char *argv[])
 {
-    argc--; argv++;
-    chip8_run(argv[0]);
+    chip8_run();
     return 0;
 }
