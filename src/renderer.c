@@ -496,8 +496,7 @@ static void render_game()
 
     if(is_fps_shown)
     {
-        DrawFPS(10, 10);
-
+        
         const char* chip8Info = TextFormat("v0: %.02x  v1: %.02x  v2: %.02x  v3: %.02x  v4: %.02x  v5: %.02x  v6: %.02x  v7: %.02x\n"
             "v8: %.02x  v9: %.02x  va: %.02x  vb: %.02x  vc: %.02x  vd: %.02x  ve: %.02x  vf: %.02x\n"
             "index: %.04x  pc: %.04x  sp: %.02x  delay_timer: %.02x  sound_timer: %.02x\n"
@@ -505,7 +504,9 @@ static void render_game()
             s_chip8.v[0], s_chip8.v[1], s_chip8.v[2], s_chip8.v[3], s_chip8.v[4], s_chip8.v[5], s_chip8.v[6], s_chip8.v[7], 
             s_chip8.v[8], s_chip8.v[9], s_chip8.v[10], s_chip8.v[11], s_chip8.v[12], s_chip8.v[13], s_chip8.v[14], s_chip8.v[15],
             s_chip8.index, s_chip8.pc, s_chip8.sp, s_chip8.delay_timer, s_chip8.sound_timer, s_chip8.speed);
+        DrawRectangle(0, 0, 600, 100, DARKGRAY);
         DrawText(chip8Info, 10, 30, 18, DARKGREEN);
+        DrawFPS(10, 10);
     }
 
     if(GetTime() < s_transition_time)
