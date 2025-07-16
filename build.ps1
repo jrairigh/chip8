@@ -7,7 +7,9 @@ param(
     [bool]$Clean = $false,
     [Parameter(Mandatory = $false)]
     [ValidateSet("debug", "info", "warn", "error")]
-    [string]$Log = "info"
+    [string]$Log = "info",
+    [Parameter(Mandatory = $false)]
+    [bool]$Step = $false
 )
 
 if ($Clean) {
@@ -22,6 +24,13 @@ if($Config -eq "Debug") {
 } else {
     Write-Host "Configuring for Release build"
     $C_FLAGS += "-DNDEBUG=1"
+}
+
+if($Step) {
+    Write-Host "Step mode enabled"
+    $C_FLAGS += "-DCHIP8_STEP=1"
+} else {
+    Write-Host "Step mode disabled"
 }
 
 switch ($Log) {

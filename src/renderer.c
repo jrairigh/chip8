@@ -20,6 +20,10 @@
 #define CHIP8_LOGLEVEL 0
 #endif
 
+#ifndef CHIP8_STEP
+#define CHIP8_STEP 0
+#endif
+
 struct KeypadPair
 {
     uint8_t key;
@@ -309,7 +313,14 @@ static void render_transition()
 
 static void render_game()
 {
-    vm_update();
+    if(CHIP8_STEP && IsKeyPressed(KEY_F10))
+    {
+        vm_update();
+    }
+    else if(!CHIP8_STEP)
+    {
+        vm_update();
+    }
 
     if (IsKeyPressed(KEY_F2))
     {
