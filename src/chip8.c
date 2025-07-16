@@ -73,12 +73,37 @@ void chip8_initialize(const char* rom)
         monitor_log(LOG_INFO, chBuffer);
         chip8_load_rom(rom);
     }
+
+    monitor_clear();
 }
 
 void chip8_cycle()
 {
-    if(s_chip8.halted || s_chip8.paused)
+    if(s_chip8.halted)
     {
+        return;
+    }
+
+    if(s_chip8.paused)
+    {
+        // The only instruction that pauses machine is waiting for key press
+        // The reason the code is removed from the main chip_vm_run function is because
+        // raylib returns true each time GetKeyPressed is called in the current frame.
+        // Because the vm may run more than one cycle per frame this caused back to back
+        // get key instructions to not wait for input.
+
+        const uint16_t upper = (uint16_t)s_chip8.ram[s_chip8.pc];
+        const uint16_t lower = (uint16_t)s_chip8.ram[s_chip8.pc + 1];
+        const uint8_t x = X((upper << 8) | lower);
+
+        uint8_t key;
+        bool is_pressed = monitor_get_key(&key);
+        if(is_pressed)
+        {
+            s_chip8.v[x] = key;
+            s_chip8.paused = false;
+        }
+
         return;
     }
 
@@ -87,6 +112,11 @@ void chip8_cycle()
         const uint16_t upper = (uint16_t)s_chip8.ram[s_chip8.pc];
         const uint16_t lower = (uint16_t)s_chip8.ram[s_chip8.pc + 1];
         chip8_vm_run((upper << 8) | lower);
+
+        if(s_chip8.paused)
+        {
+            return;
+        }
     }
 
     if(s_chip8.delay_timer > 0)
@@ -120,7 +150,10 @@ void chip8_load_program(uint16_t* program, size_t program_size)
 static void chip8_vm_run(const uint16_t instruction)
 {
     assert((s_chip8.pc & 0x1) == 0); // Ensure PC is even
+    const uint16_t currentPC = s_chip8.pc;
+
     s_chip8.pc += 2;
+
     const uint8_t x = X(instruction);
     const uint8_t y = Y(instruction);
 
@@ -133,7 +166,7 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_case(0xE0)
                 {
                     // CLS
-                    monitor_log(LOG_DEBUG, "CLS");
+                    monitor_log(LOG_DEBUG, "%.04x: CLS", currentPC);
                     monitor_clear();
                     vm_break;
                 }
@@ -141,7 +174,7 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_case(0xEE)
                 {
                     // RET
-                    monitor_log(LOG_DEBUG, "RET");
+                    monitor_log(LOG_DEBUG, "%.04x: RET", currentPC);
                     s_chip8.sp--;
                     s_chip8.pc = s_chip8.stack[s_chip8.sp];
                     s_chip8.stack[s_chip8.sp] = 0;
@@ -151,7 +184,7 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_default
                 {
                     // halt
-                    monitor_log(LOG_INFO, "HALTED 0x0000");
+                    monitor_log(LOG_INFO, "%.04x: HALTED 0x%.04x", currentPC, instruction);
                     s_chip8.halted = true;
                     vm_break;
                 }
@@ -163,7 +196,7 @@ static void chip8_vm_run(const uint16_t instruction)
         vm_case(0x1000)
         {
             // JP addr
-            monitor_log(LOG_DEBUG, "JP");
+            monitor_log(LOG_DEBUG, "%.04x: JP(0x%.04x)", currentPC, ADDR(instruction));
             s_chip8.pc = ADDR(instruction);
             vm_break;
         }
@@ -171,7 +204,7 @@ static void chip8_vm_run(const uint16_t instruction)
         vm_case(0x2000)
         {
             // CALL addr
-            monitor_log(LOG_DEBUG, "CALL");
+            monitor_log(LOG_DEBUG, "%.04x: CALL(0x%.04x)", currentPC, ADDR(instruction));
             s_chip8.stack[s_chip8.sp] = s_chip8.pc;
             s_chip8.sp++;
             s_chip8.pc = ADDR(instruction);
@@ -181,7 +214,7 @@ static void chip8_vm_run(const uint16_t instruction)
         vm_case(0x3000)
         {
             // SE Vx, byte
-            monitor_log(LOG_DEBUG, "SE1");
+            monitor_log(LOG_DEBUG, "%.04x: SE1(%d, 0x%.02x) // Skip if x == byte", currentPC, x, BYTE(instruction));
             s_chip8.pc += (uint16_t)(s_chip8.v[x] == BYTE(instruction)) << 1;
             vm_break;
         }
@@ -189,7 +222,7 @@ static void chip8_vm_run(const uint16_t instruction)
         vm_case(0x4000)
         {
             // SNE Vx, byte
-            monitor_log(LOG_DEBUG, "SNE1");
+            monitor_log(LOG_DEBUG, "%.04x: SNE1(%d, 0x%.02x) // Skip if x != byte", currentPC, x, BYTE(instruction));
             s_chip8.pc += (uint16_t)(s_chip8.v[x] != BYTE(instruction)) << 1;
             vm_break;
         }
@@ -197,7 +230,7 @@ static void chip8_vm_run(const uint16_t instruction)
         vm_case(0x5000)
         {
             // SE Vx, Vy
-            monitor_log(LOG_DEBUG, "SE2");
+            monitor_log(LOG_DEBUG, "%.04x: SE2(%d, %d) // Skip if x == y", currentPC, x, y);
             s_chip8.pc += (uint16_t)(s_chip8.v[x] == s_chip8.v[y]) << 1;
             vm_break;
         }
@@ -205,7 +238,7 @@ static void chip8_vm_run(const uint16_t instruction)
         vm_case(0x6000)
         {
             // LD Vx, byte
-            monitor_log(LOG_DEBUG, "LD1");
+            monitor_log(LOG_DEBUG, "%.04x: LD1(%d, 0x%.02x) // x = byte", currentPC, x, BYTE(instruction));
             s_chip8.v[x] = BYTE(instruction);
             vm_break;
         }
@@ -213,7 +246,7 @@ static void chip8_vm_run(const uint16_t instruction)
         vm_case(0x7000)
         {
             // ADD Vx, byte
-            monitor_log(LOG_DEBUG, "ADD1");
+            monitor_log(LOG_DEBUG, "%.04x: ADD1(%d, 0x%.02x) // x += byte", currentPC, x, BYTE(instruction));
             s_chip8.v[x] += BYTE(instruction);
             vm_break;
         }
@@ -225,7 +258,7 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_case(0x0)
                 {
                     // LD Vx, Vy
-                    monitor_log(LOG_DEBUG, "LD2");
+                    monitor_log(LOG_DEBUG, "%.04x: LD2(%d, %d) // x = y", currentPC, x, y);
                     s_chip8.v[x] = s_chip8.v[y];
                     vm_break;
                 }
@@ -233,7 +266,7 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_case(0x1)
                 {
                     // OR Vx, Vy
-                    monitor_log(LOG_DEBUG, "OR");
+                    monitor_log(LOG_DEBUG, "%.04x: OR(%d, %d) // x |= y", currentPC, x, y);
                     s_chip8.v[x] |= s_chip8.v[y];
                     vm_break;
                 }
@@ -241,7 +274,7 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_case(0x2)
                 {
                     // AND Vx, Vy
-                    monitor_log(LOG_DEBUG, "AND");
+                    monitor_log(LOG_DEBUG, "%.04x: AND(%d, %d) // x &= y", currentPC, x, y);
                     s_chip8.v[x] &= s_chip8.v[y];
                     vm_break;
                 }
@@ -249,7 +282,7 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_case(0x3)
                 {
                     // XOR Vx, Vy
-                    monitor_log(LOG_DEBUG, "XOR");
+                    monitor_log(LOG_DEBUG, "%.04x: XOR(%d, %d) // x ^= y", currentPC, x, y);
                     s_chip8.v[x] ^= s_chip8.v[y];
                     vm_break;
                 }
@@ -257,7 +290,7 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_case(0x4)
                 {
                     // ADD Vx, Vy
-                    monitor_log(LOG_DEBUG, "ADD2");
+                    monitor_log(LOG_DEBUG, "%.04x: ADD2(%d, %d) // x += y", currentPC, x, y);
                     const uint8_t max_value = 0xFF - s_chip8.v[x];
                     s_chip8.v[0xF] = max_value < s_chip8.v[y]; // Set carry flag
                     s_chip8.v[x] += s_chip8.v[y];
@@ -267,7 +300,7 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_case(0x5)
                 {
                     // SUB Vx, Vy
-                    monitor_log(LOG_DEBUG, "SUB");
+                    monitor_log(LOG_DEBUG, "%.04x: SUB(%d, %d) // x -= y", currentPC, x, y);
                     s_chip8.v[0xF] = s_chip8.v[x] > s_chip8.v[y]; // Set borrow flag
                     s_chip8.v[x] -= s_chip8.v[y];
                     vm_break;
@@ -276,7 +309,7 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_case(0x6)
                 {
                     // SHR Vx {, Vy}
-                    monitor_log(LOG_DEBUG, "SHR");
+                    monitor_log(LOG_DEBUG, "%.04x: SHR(%d) // x >>= 1", currentPC, x);
                     s_chip8.v[0xF] = s_chip8.v[x] & 0x1; // Set carry flag
                     s_chip8.v[x] >>= 1;
                     vm_break;
@@ -285,7 +318,7 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_case(0x7)
                 {
                     // SUBN Vx, Vy
-                    monitor_log(LOG_DEBUG, "SUBN");
+                    monitor_log(LOG_DEBUG, "%.04x: SUBN(%d, %d) // x = y - x", currentPC, x, y);
                     s_chip8.v[0xF] = s_chip8.v[y] > s_chip8.v[x]; // Set borrow flag
                     s_chip8.v[x] = s_chip8.v[y] - s_chip8.v[x];
                     vm_break;
@@ -294,7 +327,7 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_case(0xE)
                 {
                     // SHL Vx {, Vy}
-                    monitor_log(LOG_DEBUG, "SHL");
+                    monitor_log(LOG_DEBUG, "%.04x: SHL(%d) // x <<= 1", currentPC, x);
                     s_chip8.v[0xF] = (s_chip8.v[x] & 0x80) > 0; // Set carry flag
                     s_chip8.v[x] <<= 1;
                     vm_break;
@@ -303,7 +336,7 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_default
                 {
                     // halt
-                    monitor_log(LOG_INFO, "HALTED 0x8000");
+                    monitor_log(LOG_INFO, "%.04x: HALTED 0x%.04x", currentPC, instruction);
                     s_chip8.halted = true;
                     vm_break;
                 }
@@ -314,7 +347,7 @@ static void chip8_vm_run(const uint16_t instruction)
         vm_case(0x9000)
         {
             // SNE Vx, Vy
-            monitor_log(LOG_DEBUG, "SNE2");
+            monitor_log(LOG_DEBUG, "%.04x: SNE2(%d, %d) // Skip if x != y", currentPC, x, y);
             s_chip8.pc += (uint16_t)(s_chip8.v[x] != s_chip8.v[y]) << 1;
             vm_break;
         }
@@ -322,7 +355,7 @@ static void chip8_vm_run(const uint16_t instruction)
         vm_case(0xA000)
         {
             // LD I, addr
-            monitor_log(LOG_DEBUG, "LDB");
+            monitor_log(LOG_DEBUG, "%.04x: LDB(%d) // index = addr", currentPC, ADDR(instruction));
             s_chip8.index = ADDR(instruction);
             vm_break;
         }
@@ -330,7 +363,7 @@ static void chip8_vm_run(const uint16_t instruction)
         vm_case(0xB000)
         {
             // JP V0, addr
-            monitor_log(LOG_DEBUG, "JP1");
+            monitor_log(LOG_DEBUG, "%.04x: JP1(%d) // pc = addr + V0", currentPC, ADDR(instruction));
             s_chip8.pc = ADDR(instruction) + s_chip8.v[0];
             vm_break;
         }
@@ -338,7 +371,7 @@ static void chip8_vm_run(const uint16_t instruction)
         vm_case(0xC000)
         {
             // RND Vx, byte
-            monitor_log(LOG_DEBUG, "RND");
+            monitor_log(LOG_DEBUG, "%.04x: RND(%d, 0x%.02x) // x = rand()", currentPC, x, BYTE(instruction));
             s_chip8.v[x] = (rand() % 256) & BYTE(instruction);
             vm_break;
         }
@@ -346,7 +379,7 @@ static void chip8_vm_run(const uint16_t instruction)
         vm_case(0xD000)
         {
             // DRW Vx, Vy, nibble
-            monitor_log(LOG_DEBUG, "DRW");
+            monitor_log(LOG_DEBUG, "%.04x: DRW(%d, %d, %d)", currentPC, x, y, NIBBLE(instruction));
             s_chip8.v[0xF] = 0; // Clear collision flag
             monitor_draw_sprite(s_chip8.v[x], s_chip8.v[y], s_chip8.ram + s_chip8.index, NIBBLE(instruction), (bool*)&s_chip8.v[0xF]);
             vm_break;
@@ -360,7 +393,7 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_case(0x9E)
                 {
                     // SKP Vx
-                    monitor_log(LOG_DEBUG, "SKP");
+                    monitor_log(LOG_DEBUG, "%.04x: SKP(%d) // Skip if key down", currentPC, x);
                     s_chip8.pc += (uint16_t)(monitor_is_key_down(s_chip8.v[x])) << 1;
                     vm_break;
                 }
@@ -368,7 +401,7 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_case(0xA1)
                 {
                     // SKNP Vx
-                    monitor_log(LOG_DEBUG, "SKNP");
+                    monitor_log(LOG_DEBUG, "%.04x: SKNP(%d) // Skip if key not down", currentPC, x);
                     s_chip8.pc += (uint16_t)(monitor_is_key_down(s_chip8.v[x]) == 0) << 1;
                     vm_break;
                 }
@@ -376,7 +409,7 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_default
                 {
                     // halt
-                    monitor_log(LOG_INFO, "HALTED 0xE000");
+                    monitor_log(LOG_INFO, "%.04x: HALTED 0x%.04x", currentPC, instruction);
                     s_chip8.halted = true;
                     vm_break;
                 }
@@ -392,7 +425,7 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_case(0x07)
                 {
                     // LD Vx, DT
-                    monitor_log(LOG_DEBUG, "LD6");
+                    monitor_log(LOG_DEBUG, "%.04x: LD6(%d) // x = delay timer", currentPC, x);
                     s_chip8.v[x] = s_chip8.delay_timer;
                     vm_break;
                 }
@@ -400,23 +433,15 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_case(0x0A)
                 {
                     // LD Vx, K
-                    monitor_log(LOG_DEBUG, "LD3");
+                    monitor_log(LOG_DEBUG, "%.04x: LD3(%d) // x = get_key()", currentPC, x);
                     s_chip8.paused = true;
-                    uint8_t key;
-                    bool is_pressed = monitor_get_key(&key);
-                    if(is_pressed)
-                    {
-                        s_chip8.v[x] = key;
-                        s_chip8.paused = false;
-                    }
-                    
                     vm_break;
                 }
                 
                 vm_case(0x15)
                 {
                     // LD DT, Vx
-                    monitor_log(LOG_DEBUG, "LD5");
+                    monitor_log(LOG_DEBUG, "%.04x: LD5(%d) // delay timer = x", currentPC, x);
                     s_chip8.delay_timer = s_chip8.v[x];
                     vm_break;
                 }
@@ -424,7 +449,7 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_case(0x18)
                 {
                     // LD ST, Vx
-                    monitor_log(LOG_DEBUG, "LD4");
+                    monitor_log(LOG_DEBUG, "%.04x: LD4(%d) // sound timer = x", currentPC, x);
                     s_chip8.sound_timer = s_chip8.v[x];
                     vm_break;
                 }
@@ -432,7 +457,7 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_case(0x1E)
                 {
                     // ADD I, Vx
-                    monitor_log(LOG_DEBUG, "ADD3");
+                    monitor_log(LOG_DEBUG, "%.04x: ADD3(%d) // index += x", currentPC, x);
                     s_chip8.index += (uint16_t)s_chip8.v[x];
                     vm_break;
                 }
@@ -440,7 +465,7 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_case(0x29)
                 {
                     // LD F, Vx
-                    monitor_log(LOG_DEBUG, "LD7");
+                    monitor_log(LOG_DEBUG, "%.04x: LD7(%d) // index = font at x", currentPC, x);
                     s_chip8.index = D0 + NIBBLE(s_chip8.v[x]) * 5;
                     vm_break;
                 }
@@ -448,7 +473,7 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_case(0x33)
                 {
                     // LD B, Vx
-                    monitor_log(LOG_DEBUG, "LD8");
+                    monitor_log(LOG_DEBUG, "%.04x: LD8(%d) // Store BCD of x at index", currentPC, x);
                     const uint8_t value = s_chip8.v[x];
                     const uint8_t ones = value % 10;
                     const uint8_t tens = (value % 100) / 10;
@@ -471,7 +496,7 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_case(0x55)
                 {
                     // LD [I], Vx
-                    monitor_log(LOG_DEBUG, "LD9");
+                    monitor_log(LOG_DEBUG, "%.04x: LD9(%d) // Store register 0 thru x into index", currentPC, x);
                     for(uint8_t i = 0; i <= x; ++i)
                     {
                         if((s_chip8.index + i) >= PROGRAM_START)
@@ -490,7 +515,7 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_case(0x65)
                 {
                     // LD Vx, [I]
-                    monitor_log(LOG_DEBUG, "LDA");
+                    monitor_log(LOG_DEBUG, "%.04x: LDA(%d) // load registers 0 thru x with values starting at index", currentPC, x);
                     for(uint8_t i = 0; i <= x; ++i)
                     {
                         s_chip8.v[i] = s_chip8.ram[s_chip8.index + i];
@@ -502,7 +527,7 @@ static void chip8_vm_run(const uint16_t instruction)
                 vm_default
                 {
                     // halt
-                    monitor_log(LOG_INFO, "HALTED 0xF000");
+                    monitor_log(LOG_INFO, "%.04x: HALTED 0x%.04x", currentPC, instruction);
                     s_chip8.halted = true;
                     vm_break;
                 }
@@ -514,7 +539,7 @@ static void chip8_vm_run(const uint16_t instruction)
         vm_default
         {
             // halt
-            monitor_log(LOG_INFO, "HALTED");
+            monitor_log(LOG_INFO, "%.04x: HALTED 0x%.04x", currentPC, instruction);
             s_chip8.halted = true;
             vm_break;
         }

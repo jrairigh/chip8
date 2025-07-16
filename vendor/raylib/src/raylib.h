@@ -1080,6 +1080,7 @@ RLAPI void OpenURL(const char *url);                              // Open URL wi
 
 // NOTE: Following functions implemented in module [utils]
 //------------------------------------------------------------------
+RLAPI void TraceLogV(int logType, const char *text, va_list args);
 RLAPI void TraceLog(int logLevel, const char *text, ...);         // Show trace log messages (LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR...)
 RLAPI void SetTraceLogLevel(int logLevel);                        // Set the current threshold (minimum) log level
 RLAPI void *MemAlloc(unsigned int size);                          // Internal memory allocator

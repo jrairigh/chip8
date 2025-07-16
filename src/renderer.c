@@ -4,7 +4,6 @@
 #include "raylib.h"
 #include "raymath.h"
 
-#include <assert.h>
 #include <math.h>
 #include <string.h>
 
@@ -20,6 +19,19 @@
 #ifndef CHIP8_LOGLEVEL
 #define CHIP8_LOGLEVEL 0
 #endif
+
+struct KeypadPair
+{
+    uint8_t key;
+    uint8_t value;
+};
+
+static const struct KeypadPair s_keypadBindings[16] = {
+    {KEY_ONE, 0x1}, {KEY_TWO, 0x2}, {KEY_THREE, 0x3}, {KEY_FOUR, 0xC},
+    {KEY_Q, 0x4}, {KEY_W, 0x5}, {KEY_E, 0x6}, {KEY_R, 0xD},
+    {KEY_A, 0x7}, {KEY_S, 0x8}, {KEY_D, 0x9}, {KEY_F, 0xE},
+    {KEY_Z, 0xA}, {KEY_X, 0x0}, {KEY_C, 0xB}, {KEY_V, 0xF}
+};
 
 extern Chip8 s_chip8;
 
@@ -127,9 +139,9 @@ void renderer_set_shutdown_func(void (*shutdown_func)())
     vm_shutdown = shutdown_func;
 }
 
-void renderer_log(int logLevel, const char* message)
+void renderer_log(int logLevel, const char* message, va_list args)
 {
-    TraceLog(LOG_DEBUG + logLevel, message);
+    TraceLogV(LOG_DEBUG + logLevel, message, args);
 }
 
 void renderer_play_tone()
@@ -156,100 +168,13 @@ void renderer_stop_tone()
 
 bool renderer_get_key(uint8_t* outKey)
 {
-    if(IsKeyPressed(KEY_ONE))
+    for(size_t i = 0; i < sizeof(s_keypadBindings) / sizeof(s_keypadBindings[0]); ++i)
     {
-        *outKey = 0x1;
-        return true;
-    }
-
-    if(IsKeyPressed(KEY_TWO))
-    {
-        *outKey = 0x2;
-        return true;
-    }
-
-    if(IsKeyPressed(KEY_THREE))
-    {
-        *outKey = 0x3;
-        return true;
-    }
-
-    if(IsKeyPressed(KEY_FOUR))
-    {
-        *outKey = 0xC;
-        return true;
-    }
-
-    if(IsKeyPressed(KEY_Q))
-    {
-        *outKey = 0x4;
-        return true;
-    }
-
-    if(IsKeyPressed(KEY_W))
-    {
-        *outKey = 0x5;
-        return true;
-    }
-
-    if(IsKeyPressed(KEY_E))
-    {
-        *outKey = 0x6;
-        return true;
-    }
-
-    if(IsKeyPressed(KEY_R))
-    {
-        *outKey = 0xD;
-        return true;
-    }
-
-    if(IsKeyPressed(KEY_A))
-    {
-        *outKey = 0x7;
-        return true;
-    }
-
-    if(IsKeyPressed(KEY_S))
-    {
-        *outKey = 0x8;
-        return true;
-    }
-
-    if(IsKeyPressed(KEY_D))
-    {
-        *outKey = 0x9;
-        return true;
-    }
-
-    if(IsKeyPressed(KEY_F))
-    {
-        *outKey = 0xE;
-        return true;
-    }
-
-    if(IsKeyPressed(KEY_Z))
-    {
-        *outKey = 0xA;
-        return true;
-    }
-
-    if(IsKeyPressed(KEY_X))
-    {
-        *outKey = 0x0;
-        return true;
-    }
-
-    if(IsKeyPressed(KEY_C))
-    {
-        *outKey = 0xB;
-        return true;
-    }
-
-    if(IsKeyPressed(KEY_V))
-    {
-        *outKey = 0xF;
-        return true;
+        if(IsKeyPressed(s_keypadBindings[i].key))
+        {
+            *outKey = s_keypadBindings[i].value;
+            return true;
+        }
     }
 
     return false;
@@ -257,84 +182,12 @@ bool renderer_get_key(uint8_t* outKey)
 
 bool renderer_is_key_down(uint8_t key)
 {
-    if(IsKeyDown(KEY_ONE) && key == 0x1)
+    for(size_t i = 0; i < sizeof(s_keypadBindings) / sizeof(s_keypadBindings[0]); ++i)
     {
-        return true;
-    }
-
-    if(IsKeyDown(KEY_TWO) && key == 0x2)
-    {
-        return true;
-    }
-
-    if(IsKeyDown(KEY_THREE) && key == 0x3)
-    {
-        return true;
-    }
-
-    if(IsKeyDown(KEY_FOUR) && key == 0xC)
-    {
-        return true;
-    }
-
-    if(IsKeyDown(KEY_Q) && key == 0x4)
-    {
-        return true;
-    }
-
-    if(IsKeyDown(KEY_W) && key == 0x5)
-    {
-        return true;
-    }
-
-    if(IsKeyDown(KEY_E) && key == 0x6)
-    {
-        return true;
-    }
-
-    if(IsKeyDown(KEY_R) && key == 0xD)
-    {
-        return true;
-    }
-
-    if(IsKeyDown(KEY_A) && key == 0x7)
-    {
-        return true;
-    }
-
-    if(IsKeyDown(KEY_S) && key == 0x8)
-    {
-        return true;
-    }
-
-    if(IsKeyDown(KEY_D) && key == 0x9)
-    {
-        return true;
-    }
-
-    if(IsKeyDown(KEY_F) && key == 0xE)
-    {
-        return true;
-    }
-
-    if(IsKeyDown(KEY_Z) && key == 0xA)
-    {
-        return true;
-    }
-
-    if(IsKeyDown(KEY_X) && key == 0x0)
-    {
-        return true;
-    }
-
-    if(IsKeyDown(KEY_C) && key == 0xB)
-    {
-        return true;
-    }
-
-    if(IsKeyDown(KEY_V) && key == 0xF)
-    {
-        return true;
+        if(s_keypadBindings[i].value == key && IsKeyDown(s_keypadBindings[i].key))
+        {
+            return true;
+        }
     }
 
     return false;
@@ -438,7 +291,6 @@ static void render_transition()
     if(GetTime() >= s_transition_time - TRANSITION_EXTRA_DELAY)
     {
         render_state = render_game;
-        memset(RASTER_DISPLAY, 0, sizeof(RASTER_DISPLAY));
         return;
     }
 

@@ -2,10 +2,11 @@
 #include "renderer.h"
 
 #include <assert.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define MONITOR_COLUMNS 64
 #define MONITOR_ROWS 32
@@ -23,9 +24,12 @@ void monitor_initialize(void (*init_func)(const char*), void (*update_func)(), v
     renderer_shutdown();
 }
 
-void monitor_log(LogLevel level, const char* text)
+void monitor_log(LogLevel level, const char* text, ...)
 {
-    renderer_log((int)level, text);
+    va_list args;
+    va_start(args, text);
+    renderer_log((int)level, text, args);
+    va_end(args);
 }
 
 void monitor_clear()

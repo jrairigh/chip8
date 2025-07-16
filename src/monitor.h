@@ -19,6 +19,6 @@ bool monitor_get_key(uint8_t* outKey);
 bool monitor_is_key_down(uint8_t key);
 void monitor_play_tone();
 void monitor_stop_tone();
-void monitor_log(LogLevel level, const char* text);
+void monitor_log(LogLevel level, const char* text, ...);
 
 #endif
