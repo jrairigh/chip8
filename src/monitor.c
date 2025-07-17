@@ -35,10 +35,13 @@ void monitor_log(LogLevel level, const char* text, ...)
 void monitor_clear()
 {
     memset(MONITOR, 0, sizeof(MONITOR));
+    renderer_blit(MONITOR);
 }
 
 void monitor_draw_sprite(int32_t x, int32_t y, uint8_t* sprite, uint32_t sprite_size_in_bytes, bool* didCollide)
 {
+    *didCollide = false;
+
     for(int i = 0; i < sprite_size_in_bytes; ++i)
     {
         const uint8_t row = sprite[i];
@@ -76,7 +79,7 @@ static void monitor_set_pixel(int32_t x, int32_t y, int32_t set, bool* didCollid
     }
 
     MONITOR[x] ^= (set << y);
-    *didCollide = (MONITOR[x] & (1 << y)) == 0;
+    *didCollide |= (MONITOR[x] & (1 << y)) == 0;
 }
 
 bool monitor_get_key(uint8_t* outKey)

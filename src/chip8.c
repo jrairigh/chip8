@@ -553,11 +553,18 @@ static void chip8_shutdown()
 
 static void chip8_load_rom(const char* rom_path)
 {
-//#define TEST_PROGRAM
+#define TEST_PROGRAM
 #ifdef TEST_PROGRAM
 #include "program.h"
     (void)rom_path;
-    chip8_copy_bytes_to_ram(program, sizeof(program));
+    for(size_t i = 0; i < sizeof(program) / sizeof(program[0]); ++i)
+    {
+        const uint16_t instruction = program[i];
+        const uint8_t lower = (uint8_t)(instruction & 0xFF);
+        const uint8_t upper = (uint8_t)((instruction & 0xFF00) >> 8);
+        s_chip8.ram[s_chip8.pc + i * 2] = upper;
+        s_chip8.ram[s_chip8.pc + i * 2 + 1] = lower;
+    }
 #else
     FILE* rom = fopen(rom_path, "rb");
     uint8_t* write_ptr = &s_chip8.ram[s_chip8.pc];
