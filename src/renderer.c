@@ -55,6 +55,8 @@ static Texture2D s_menu_bg_tex2d;
 static char s_roms[MAX_ROMS][MAX_ROM_NAME_SIZE];
 static int s_selected_rom = 0;
 static float s_transition_time = 0.0f;
+static Vector2 s_old_window_position = {0, 0};
+static int s_old_window_height = 0;
 
 static void (*vm_init)(const char*);
 static void (*vm_update)();
@@ -63,6 +65,7 @@ static inline void draw_column(int32_t x);
 static void audio_processor(void *bufferData, uint32_t frames);
 static void draw_mini_sprite(int32_t x, int32_t y, int32_t width, int32_t height);
 static void draw_stack(int32_t x, int32_t y, int32_t width, int32_t height);
+static void update_window(bool isInfoShowing);
 
 static void render_menu();
 static void render_transition();
@@ -89,6 +92,9 @@ void renderer_initialize()
         PlayAudioStream(g_tone);
         PauseAudioStream(g_tone);
     }
+
+    s_old_window_position = GetWindowPosition();
+    s_old_window_height = GetScreenHeight();
 
     s_menu_bg_tex2d = LoadTexture("../menu_bg_img.png");
 
@@ -329,12 +335,15 @@ static void render_game()
     if (IsKeyPressed(KEY_F2))
     {
         render_state = render_menu;
+        is_info_menu_shown = false;
+        update_window(false);
         return;
     }
 
     if (IsKeyPressed(KEY_F1))
     {
         is_info_menu_shown = !is_info_menu_shown;
+        update_window(is_info_menu_shown);
     }
 
     if (IsKeyPressed(KEY_EQUAL) && s_chip8.speed < 10000000)
@@ -363,8 +372,6 @@ static void render_game()
 
     if(is_info_menu_shown)
     {
-        s_info_menu_height = 210;
-        SetWindowSize(RASTER_COLUMNS * scale_x, RASTER_ROWS * scale_y + s_info_menu_height);
         const char* chip8Info = TextFormat("v0: %.02x  v1: %.02x  v2: %.02x  v3: %.02x  v4: %.02x  v5: %.02x  v6: %.02x  v7: %.02x\n\n"
             "v8: %.02x  v9: %.02x  va: %.02x  vb: %.02x  vc: %.02x  vd: %.02x  ve: %.02x  vf: %.02x\n\n"
             "index: %.04x  pc: %.04x  sp: %.02x  delay_timer: %.02x  sound_timer: %.02x\n\n"
@@ -439,7 +446,28 @@ static void draw_stack(int32_t x, int32_t y, int32_t width, int32_t height)
     for(uint8_t i = 0; i < s_chip8.sp; ++i)
     {
         DrawRectangle(x + i * px_width, y, px_width, height, RED);
+        DrawText(TextFormat("%.04x", s_chip8.stack[i]), x + i * px_width + 2, y + 6, 16, WHITE);
     }
 
     DrawRectangleLines(x, y, width, height, DARKGRAY);
+}
+
+static void update_window(bool isInfoShowing)
+{
+    if(isInfoShowing)
+    {
+        s_info_menu_height = 210;
+        const int window_width = GetScreenWidth();
+        const int window_height = s_old_window_height + s_info_menu_height;
+        const int window_x = (GetMonitorWidth(0) - window_width) / 2;
+        const int window_y = (GetMonitorHeight(0) - window_height) / 2;
+        SetWindowPosition(window_x, window_y);
+        SetWindowSize(window_width, window_height);
+    }
+    else
+    {
+        s_info_menu_height = 0;
+        SetWindowSize(GetScreenWidth(), s_old_window_height);
+        SetWindowPosition(s_old_window_position.x, s_old_window_position.y);
+    }
 }
