@@ -14,7 +14,7 @@ typedef enum LogLevel
 
 void monitor_initialize(void (*init_func)(const char*), void (*update_func)(), void (*shutdown_func)());
 void monitor_clear();
-void monitor_draw_sprite(int32_t x, int32_t y, uint8_t* sprite, uint32_t sprite_size_in_bytes, bool* didCollide);
+void monitor_draw_sprite(uint8_t x, uint8_t y, uint8_t* sprite, uint8_t sprite_size_in_bytes, bool* didCollide);
 bool monitor_get_key(uint8_t* outKey);
 bool monitor_is_key_down(uint8_t key);
 void monitor_play_tone();

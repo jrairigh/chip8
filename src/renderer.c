@@ -40,6 +40,7 @@ static const struct KeypadPair s_keypadBindings[16] = {
 
 extern Chip8 s_chip8;
 
+static const uint32_t* s_monitor = NULL;
 const float AudioFrequency = 440.0f;
 const uint32_t SampleRate = 44100;
 const uint32_t SampleSize = 16;
@@ -47,7 +48,6 @@ const uint32_t Channels = 1;
 float sineIdx = 0.0f;
 int32_t scale_x = 15;
 int32_t scale_y = 15;
-static int32_t RASTER_DISPLAY[RASTER_COLUMNS];
 static AudioStream g_tone;
 static bool is_info_menu_shown = false;
 static int s_info_menu_height = 0;
@@ -61,7 +61,7 @@ static int s_old_window_height = 0;
 static void (*vm_init)(const char*);
 static void (*vm_update)();
 static void (*vm_shutdown)();
-static inline void draw_column(int32_t x);
+static inline void draw_column(uint32_t x);
 static void audio_processor(void *bufferData, uint32_t frames);
 static void draw_mini_sprite(int32_t x, int32_t y, int32_t width, int32_t height);
 static void draw_stack(int32_t x, int32_t y, int32_t width, int32_t height);
@@ -72,8 +72,9 @@ static void render_transition();
 static void render_game();
 static void (*render_state)() = render_menu;
 
-void renderer_initialize()
+void renderer_initialize(const uint32_t* monitor)
 {
+    s_monitor = monitor;
     InitWindow(RASTER_COLUMNS * scale_x, RASTER_ROWS * scale_y, "Chip8 Emulator");
     SetTargetFPS(60);
     SetTraceLogLevel(LOG_DEBUG + CHIP8_LOGLEVEL);
@@ -131,11 +132,6 @@ void renderer_shutdown()
     UnloadAudioStream(g_tone);
     CloseAudioDevice();
     CloseWindow();
-}
-
-void renderer_blit(int32_t* data)
-{
-    memcpy(RASTER_DISPLAY, data, sizeof(RASTER_DISPLAY));
 }
 
 void renderer_set_init_func(void (*init_func)(const char*))
@@ -207,40 +203,40 @@ bool renderer_is_key_down(uint8_t key)
     return false;
 }
 
-static inline void draw_column(int32_t x)
+static inline void draw_column(uint32_t x)
 {
-    DrawRectangle(x * scale_x,  0 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 <<  0) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x,  1 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 <<  1) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x,  2 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 <<  2) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x,  3 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 <<  3) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x,  4 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 <<  4) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x,  5 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 <<  5) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x,  6 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 <<  6) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x,  7 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 <<  7) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x,  8 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 <<  8) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x,  9 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 <<  9) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 10 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 10) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 11 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 11) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 12 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 12) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 13 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 13) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 14 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 14) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 15 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 15) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 16 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 16) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 17 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 17) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 18 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 18) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 19 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 19) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 20 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 20) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 21 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 21) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 22 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 22) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 23 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 23) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 24 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 24) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 25 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 25) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 26 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 26) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 27 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 27) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 28 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 28) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 29 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 29) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 30 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 30) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 31 * scale_y + s_info_menu_height, scale_x, scale_y, RASTER_DISPLAY[x] & (1 << 31) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x,  0 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 <<  0) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x,  1 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 <<  1) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x,  2 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 <<  2) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x,  3 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 <<  3) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x,  4 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 <<  4) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x,  5 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 <<  5) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x,  6 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 <<  6) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x,  7 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 <<  7) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x,  8 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 <<  8) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x,  9 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 <<  9) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 10 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 10) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 11 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 11) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 12 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 12) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 13 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 13) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 14 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 14) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 15 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 15) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 16 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 16) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 17 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 17) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 18 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 18) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 19 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 19) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 20 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 20) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 21 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 21) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 22 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 22) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 23 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 23) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 24 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 24) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 25 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 25) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 26 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 26) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 27 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 27) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 28 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 28) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 29 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 29) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 30 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 30) ? WHITE : BLACK);
+    DrawRectangle(x * scale_x, 31 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 31) ? WHITE : BLACK);
 }
 
 void audio_processor(void *buffer, uint32_t frames)

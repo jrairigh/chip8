@@ -7,10 +7,9 @@
 
 #ifdef RUN_TESTS
 #include <stdio.h>
-void renderer_initialize() {}
+void renderer_initialize(const uint32_t* monitor) {}
 void renderer_do_update() {}
 void renderer_shutdown() {}
-void renderer_blit(int32_t* data) {(void)data;}
 void renderer_set_init_func(void (*init_func)(const char*)) {(void)init_func;}
 void renderer_set_update_func(void (*update_func)()) {(void)update_func;}
 void renderer_set_shutdown_func(void (*shutdown_func)()) {(void)shutdown_func;}
@@ -20,10 +19,9 @@ bool renderer_is_key_down(uint8_t key) {(void)key; return true;}
 void renderer_play_tone() {}
 void renderer_stop_tone() {}
 #else
-void renderer_initialize();
+void renderer_initialize(const uint32_t* monitor);
 void renderer_do_update();
 void renderer_shutdown();
-void renderer_blit(int32_t* data);
 void renderer_set_init_func(void (*init_func)(const char*));
 void renderer_set_update_func(void (*update_func)());
 void renderer_set_shutdown_func(void (*shutdown_func)());

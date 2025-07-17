@@ -380,8 +380,13 @@ static void chip8_vm_run(const uint16_t instruction)
         {
             // DRW Vx, Vy, nibble
             monitor_log(LOG_DEBUG, "%.04x: DRW(%d, %d, %d)", currentPC, x, y, NIBBLE(instruction));
-            s_chip8.v[0xF] = 0; // Clear collision flag
             monitor_draw_sprite(s_chip8.v[x], s_chip8.v[y], s_chip8.ram + s_chip8.index, NIBBLE(instruction), (bool*)&s_chip8.v[0xF]);
+
+            if(s_chip8.v[0xF])
+            {
+                monitor_log(LOG_DEBUG, "%.04x: DRW collision detected", currentPC);
+            }
+
             vm_break;
         }
         
@@ -488,6 +493,7 @@ static void chip8_vm_run(const uint16_t instruction)
                     else
                     {
                         monitor_log(LOG_WARNING, "LD8 failed: index out of bounds");
+                        s_chip8.paused = true;
                     }
                     
                     vm_break;
@@ -506,6 +512,7 @@ static void chip8_vm_run(const uint16_t instruction)
                         else
                         {
                             monitor_log(LOG_WARNING, "LD9 failed: index out of bounds");
+                            s_chip8.paused = true;
                         }
                     }
                     
@@ -553,7 +560,7 @@ static void chip8_shutdown()
 
 static void chip8_load_rom(const char* rom_path)
 {
-#define TEST_PROGRAM
+//#define TEST_PROGRAM
 #ifdef TEST_PROGRAM
 #include "program.h"
     (void)rom_path;
