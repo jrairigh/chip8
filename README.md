@@ -1,6 +1,7 @@
 # Chip8 Emulator
-My Chip8 emulator implementation.
-<img width="1200" height="600" alt="screenshot000" src="https://github.com/user-attachments/assets/3fe63eea-33f4-441b-85a7-9487e2a445a8" />
+My Chip8 emulator implementation.  
+
+<img width="953" height="482" alt="image" src="https://github.com/user-attachments/assets/49cd7078-f9e5-49c1-a34a-f7570d9c91aa" />
 
 ## How to build
 Open a powershell and run .\build.ps1 -Config Release
@@ -30,4 +31,5 @@ All games use one or more of these keys to play the game.
 - Esc exits the application
 
 ## Acknowledgements
-Thanks to inspiration from https://www.youtube.com/watch?v=jWpbHC6DtnU&t=2s and technical information provided in http://devernay.free.fr/hacks/chip8/C8TECH10.HTM#0.1
+Thanks to @ankushChatterjee for inspiration from https://www.youtube.com/watch?v=jWpbHC6DtnU&t=2s and technical details provided in http://devernay.free.fr/hacks/chip8/C8TECH10.HTM#0.1  
+Also, Thanks to @kripod for ROMS I used to test emulator (https://github.com/kripod/chip8-roms)
