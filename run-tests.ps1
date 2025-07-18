@@ -1,4 +1,11 @@
-$vm_path = Resolve-Path -Path Build-Release\chip8tests.exe
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory = $false)]
+    [ValidateSet("Debug", "Release")]
+    [string]$Config = "Release"
+)
+
+$vm_path = Resolve-Path -Path "build\${Config}\chip8tests.exe"
 $output = & $vm_path
 $outputArray = $output -split "`n"
 

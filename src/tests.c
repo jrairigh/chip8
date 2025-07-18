@@ -10,29 +10,29 @@ void chip8_load_program(uint16_t* program, size_t program_size);
 void chip8_initialize(const char* rom);
 void chip8_cycle();
 
-extern Chip8 s_chip8;
+extern Chip8 g_chip8;
 
 #define BEGIN_TEST(name) { \
     chip8_initialize(""); \
-    s_chip8.speed = 1; \
+    g_chip8.speed = 1; \
     total_tests++; \
     const char* test_name = name; \
     uint16_t program[] = {
 
 #define RUN_TEST }; \
     chip8_load_program(program, sizeof(program) / sizeof(uint16_t));\
-    while(!s_chip8.halted) \
+    while(!g_chip8.halted) \
         chip8_cycle(); \
     bool passed = true;
     
-#define ASSERT_REG(reg, value) passed = passed && (s_chip8.v[reg] == value);
-#define ASSERT_SP(value) passed = passed && (s_chip8.sp == value);
-#define ASSERT_PC(value) passed = passed && (s_chip8.pc == value);
-#define ASSERT_INDEX(value) passed = passed && (s_chip8.index == value);
-#define ASSERT_STACK(level, value) passed = passed && (s_chip8.stack[level] == value);
-#define ASSERT_DT(value) passed = passed && (s_chip8.delay_timer == value);
-#define ASSERT_ST(value) passed = passed && (s_chip8.sound_timer == value);
-#define ASSERT_MEM(index, value) passed = passed && (s_chip8.ram[index] == value);
+#define ASSERT_REG(reg, value) passed = passed && (g_chip8.v[reg] == value);
+#define ASSERT_SP(value) passed = passed && (g_chip8.sp == value);
+#define ASSERT_PC(value) passed = passed && (g_chip8.pc == value);
+#define ASSERT_INDEX(value) passed = passed && (g_chip8.index == value);
+#define ASSERT_STACK(level, value) passed = passed && (g_chip8.stack[level] == value);
+#define ASSERT_DT(value) passed = passed && (g_chip8.delay_timer == value);
+#define ASSERT_ST(value) passed = passed && (g_chip8.sound_timer == value);
+#define ASSERT_MEM(index, value) passed = passed && (g_chip8.ram[index] == value);
 
 #define END_TEST \
     if(passed) { \

@@ -15,7 +15,7 @@
 #define CHIP8_LOGLEVEL 0
 #endif
 
-extern Chip8 s_chip8;
+extern Chip8 g_chip8;
 
 static const struct KeypadPair
 {
@@ -48,6 +48,7 @@ static struct RendererContext
     const uint32_t* Monitor;
     const int32_t RasterRows;
     const int32_t RasterColumns;
+    const int32_t Scale;
     const float TransitionExtraDelay;
     const float TransitionTimeInSeconds;
     float transition_time;
@@ -55,12 +56,9 @@ static struct RendererContext
     char roms[MAX_ROMS][MAX_ROM_NAME_SIZE];
     bool is_info_menu_shown;
     bool step;
-    int32_t scale_x;
-    int32_t scale_y;
     int32_t info_menu_height;
     int32_t selected_rom;
     int32_t old_window_height;
-    Vector2 old_window_position;
     Texture2D menu_bg_tex2d;
     AudioStream tone;
 } s_ctx = {
@@ -70,8 +68,7 @@ static struct RendererContext
     .TransitionTimeInSeconds = 1.5f,
     .Monitor = NULL,
     .sine_idx = 0.0f,
-    .scale_x = 15,
-    .scale_y = 15,
+    .Scale = 15,
     .tone = {0},
     .is_info_menu_shown = false,
     .step = false,
@@ -80,7 +77,6 @@ static struct RendererContext
     .roms = {{0}},
     .selected_rom = 0,
     .transition_time = 0.0f,
-    .old_window_position = {0, 0},
     .old_window_height = 0
 };
 
@@ -101,10 +97,9 @@ static void (*render_state)() = render_menu;
 void renderer_initialize(const uint32_t* monitor)
 {
     s_ctx.Monitor = monitor;
-    InitWindow(s_ctx.RasterColumns * s_ctx.scale_x, s_ctx.RasterRows * s_ctx.scale_y, "Chip8 Emulator");
+    InitWindow(s_ctx.RasterColumns * s_ctx.Scale, s_ctx.RasterRows * s_ctx.Scale, "Chip8 Emulator");
     SetTargetFPS(60);
     SetTraceLogLevel(LOG_DEBUG + CHIP8_LOGLEVEL);
-    SetWindowState(FLAG_WINDOW_UNDECORATED);
     
     InitAudioDevice();
     SetAudioStreamBufferSizeDefault(ToneK.MaxSamplesPerUpdate);
@@ -120,7 +115,6 @@ void renderer_initialize(const uint32_t* monitor)
         PauseAudioStream(s_ctx.tone);
     }
 
-    s_ctx.old_window_position = GetWindowPosition();
     s_ctx.old_window_height = GetScreenHeight();
 
     s_ctx.menu_bg_tex2d = LoadTexture("../menu_bg_img.png");
@@ -234,7 +228,7 @@ static inline void draw_column(uint32_t x)
     for(int32_t i = 0; i < s_ctx.RasterRows; ++i)
     {
         const Color color = s_ctx.Monitor[x] & (1 <<  i) ? WHITE : BLACK;
-        DrawRectangle(x * s_ctx.scale_x,  i * s_ctx.scale_y + s_ctx.info_menu_height, s_ctx.scale_x, s_ctx.scale_y, color);
+        DrawRectangle(x * s_ctx.Scale,  i * s_ctx.Scale + s_ctx.info_menu_height, s_ctx.Scale, s_ctx.Scale, color);
     }
 }
 
@@ -305,7 +299,7 @@ static void render_transition()
     }
 
     const float t = Clamp(1.0f - ((s_ctx.transition_time - s_ctx.TransitionExtraDelay - (float)GetTime()) / (s_ctx.TransitionTimeInSeconds - s_ctx.TransitionExtraDelay)), 0.0f, 1.0f);
-    int32_t width = (int32_t)floor(t * s_ctx.RasterColumns * s_ctx.scale_x);
+    int32_t width = (int32_t)floor(t * s_ctx.RasterColumns * s_ctx.Scale);
     Rectangle playButtonBounds = (Rectangle){419, 411, 128, 53};
     Rectangle cycleLeftButtonBounds = (Rectangle){84, 340, 41, 36};
 
@@ -313,7 +307,7 @@ static void render_transition()
     DrawTexture(s_ctx.menu_bg_tex2d, 0, 0, WHITE);
     DrawText(s_ctx.roms[s_ctx.selected_rom], cycleLeftButtonBounds.x + cycleLeftButtonBounds.width + 10, cycleLeftButtonBounds.y, 30, WHITE);
     DrawText("PLAY", playButtonBounds.x, playButtonBounds.y, 48, WHITE);
-    DrawRectangle(0, 0, width, s_ctx.RasterRows * s_ctx.scale_y, BLACK);
+    DrawRectangle(0, 0, width, s_ctx.RasterRows * s_ctx.Scale, BLACK);
     EndDrawing();
 }
 
@@ -351,20 +345,14 @@ static void render_game()
         update_window(s_ctx.is_info_menu_shown);
     }
 
-    if (IsKeyPressed(KEY_EQUAL) && s_chip8.speed < 10000000)
+    if (IsKeyPressed(KEY_EQUAL) && g_chip8.speed < 10000000)
     {
-        s_chip8.speed *= 10;
+        g_chip8.speed *= 10;
     }
 
-    if (IsKeyPressed(KEY_MINUS) && s_chip8.speed > 1)
+    if (IsKeyPressed(KEY_MINUS) && g_chip8.speed > 1)
     {
-        s_chip8.speed /= 10;
-    }
-
-    if (IsWindowResized())
-    {
-        s_ctx.scale_x = GetScreenWidth() / s_ctx.RasterColumns;
-        s_ctx.scale_y = GetScreenHeight() / s_ctx.RasterRows;
+        g_chip8.speed /= 10;
     }
 
     BeginDrawing();
@@ -381,9 +369,9 @@ static void render_game()
             "v8: %.02x  v9: %.02x  va: %.02x  vb: %.02x  vc: %.02x  vd: %.02x  ve: %.02x  vf: %.02x\n\n"
             "index: %.04x  pc: %.04x  sp: %.02x  delay_timer: %.02x  sound_timer: %.02x\n\n"
             "speed: %d\n",
-            s_chip8.v[0], s_chip8.v[1], s_chip8.v[2], s_chip8.v[3], s_chip8.v[4], s_chip8.v[5], s_chip8.v[6], s_chip8.v[7], 
-            s_chip8.v[8], s_chip8.v[9], s_chip8.v[10], s_chip8.v[11], s_chip8.v[12], s_chip8.v[13], s_chip8.v[14], s_chip8.v[15],
-            s_chip8.index, s_chip8.pc, s_chip8.sp, s_chip8.delay_timer, s_chip8.sound_timer, s_chip8.speed);
+            g_chip8.v[0], g_chip8.v[1], g_chip8.v[2], g_chip8.v[3], g_chip8.v[4], g_chip8.v[5], g_chip8.v[6], g_chip8.v[7], 
+            g_chip8.v[8], g_chip8.v[9], g_chip8.v[10], g_chip8.v[11], g_chip8.v[12], g_chip8.v[13], g_chip8.v[14], g_chip8.v[15],
+            g_chip8.index, g_chip8.pc, g_chip8.sp, g_chip8.delay_timer, g_chip8.sound_timer, g_chip8.speed);
         DrawRectangle(0, 0, 650, 150, DARKGRAY);
         DrawText(chip8Info, 10, 36, 20, GREEN);
         draw_stack(0, 150, 650, 60);
@@ -393,7 +381,7 @@ static void render_game()
 
     if(GetTime() < s_ctx.transition_time)
     {
-        DrawRectangle(0, 0, s_ctx.RasterColumns * s_ctx.scale_x, s_ctx.RasterRows * s_ctx.scale_y, BLACK);
+        DrawRectangle(0, 0, s_ctx.RasterColumns * s_ctx.Scale, s_ctx.RasterRows * s_ctx.Scale, BLACK);
     }
 
     EndDrawing();
@@ -409,7 +397,7 @@ static void draw_mini_sprite(int32_t x, int32_t y, int32_t width, int32_t height
     
     for(int32_t i = 0; i < 15; ++i)
     {
-        const uint8_t row = s_chip8.ram[s_chip8.index + i];
+        const uint8_t row = g_chip8.ram[g_chip8.index + i];
         DrawRectangle(0 * px_width + x, (i + y) * px_height, px_width, px_height, (row & 0x80) ? WHITE : BLACK);
         DrawRectangle(1 * px_width + x, (i + y) * px_height, px_width, px_height, (row & 0x40) ? WHITE : BLACK);
         DrawRectangle(2 * px_width + x, (i + y) * px_height, px_width, px_height, (row & 0x20) ? WHITE : BLACK);
@@ -448,10 +436,10 @@ static void draw_stack(int32_t x, int32_t y, int32_t width, int32_t height)
         DrawLine(x + i * px_width, y, x + i * px_width, y + height, line_color);
     }
 
-    for(uint8_t i = 0; i < s_chip8.sp; ++i)
+    for(uint8_t i = 0; i < g_chip8.sp; ++i)
     {
         DrawRectangle(x + i * px_width, y, px_width, height, RED);
-        DrawText(TextFormat("%.04x", s_chip8.stack[i]), x + i * px_width + 2, y + 6, 16, WHITE);
+        DrawText(TextFormat("%.04x", g_chip8.stack[i]), x + i * px_width + 2, y + 6, 16, WHITE);
     }
 
     DrawRectangleLines(x, y, width, height, DARKGRAY);
@@ -459,20 +447,19 @@ static void draw_stack(int32_t x, int32_t y, int32_t width, int32_t height)
 
 static void update_window(bool isInfoShowing)
 {
+    const int32_t window_width = GetScreenWidth();
+    int32_t window_height;
+
     if(isInfoShowing)
     {
         s_ctx.info_menu_height = 210;
-        const int window_width = GetScreenWidth();
-        const int window_height = s_ctx.old_window_height + s_ctx.info_menu_height;
-        const int window_x = (GetMonitorWidth(0) - window_width) / 2;
-        const int window_y = (GetMonitorHeight(0) - window_height) / 2;
-        SetWindowPosition(window_x, window_y);
-        SetWindowSize(window_width, window_height);
+        window_height = s_ctx.old_window_height + s_ctx.info_menu_height;
     }
     else
     {
         s_ctx.info_menu_height = 0;
-        SetWindowSize(GetScreenWidth(), s_ctx.old_window_height);
-        SetWindowPosition(s_ctx.old_window_position.x, s_ctx.old_window_position.y);
+        window_height = s_ctx.old_window_height;
     }
+
+    SetWindowSize(window_width, window_height);
 }

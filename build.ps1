@@ -7,12 +7,14 @@ param(
     [bool]$Clean = $false,
     [Parameter(Mandatory = $false)]
     [ValidateSet("debug", "info", "warn", "error")]
-    [string]$Log = "info"
+    [string]$Log = "info",
+    [Parameter(Mandatory = $false)]
+    [string]$Generator = "Ninja"
 )
 
 if ($Clean) {
     Write-Host "Clean build"
-    Remove-Item -Recurse -Force build-$Config
+    Remove-Item -Recurse -Force build\$Config
 }
 
 $C_FLAGS = @()
@@ -32,11 +34,11 @@ switch ($Log) {
     default { Write-Host "Unknown log level: $Log" }
 }
 
-$BuildDir = @("build", $Config) -join "-"
+$BuildDir = @("build", $Config) -join "\"
 $BuildFlags = $C_FLAGS -join " "
 
 Write-Host "Building to $BuildDir"
 Write-Host "Build flags: $BuildFlags"
 
-cmake -S . -B $BuildDir -G "Ninja" "-DCMAKE_BUILD_TYPE=$Config" "-DCMAKE_C_FLAGS=$BuildFlags"
+cmake -S . -B $BuildDir -G "$Generator" "-DCMAKE_BUILD_TYPE=$Config" "-DCMAKE_C_FLAGS=$BuildFlags"
 cmake --build "$BuildDir" --config "$Config"
