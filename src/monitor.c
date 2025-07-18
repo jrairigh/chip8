@@ -10,11 +10,12 @@
 
 #define MONITOR_COLUMNS 64
 #define MONITOR_ROWS 32
+
 static uint32_t MONITOR[MONITOR_COLUMNS];
 
 static inline void monitor_set_pixel(uint8_t x, uint8_t y, bool set, bool* didCollide);
 
-void monitor_initialize(void (*init_func)(const char*), void (*update_func)(), void (*shutdown_func)())
+void monitor_initialize(InitFunc init_func, UpdateFunc update_func, ShutdownFunc shutdown_func)
 {
     renderer_initialize(MONITOR);
     renderer_set_init_func(init_func);

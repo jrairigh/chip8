@@ -560,6 +560,7 @@ static void chip8_shutdown()
 
 static void chip8_load_rom(const char* rom_path)
 {
+// If you want to write your own test program then uncomment the following #define and update program.h with your Chip8 program.
 //#define TEST_PROGRAM
 #ifdef TEST_PROGRAM
 #include "program.h"
@@ -585,7 +586,7 @@ static void chip8_load_rom(const char* rom_path)
         
         while(bytes_read > 0)
         {
-            if(write_ptr - &s_chip8.ram[s_chip8.pc] >= (ptrdiff_t)(0xFFF - 0x200))
+            if(write_ptr - &s_chip8.ram[s_chip8.pc] >= (ptrdiff_t)(0xFFF - PROGRAM_START))
             {
                 monitor_log(LOG_ERROR, "ROM too large to fit in memory");
                 break;

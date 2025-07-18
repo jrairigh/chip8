@@ -12,7 +12,11 @@ typedef enum LogLevel
     LOG_ERROR, 
 } LogLevel;
 
-void monitor_initialize(void (*init_func)(const char*), void (*update_func)(), void (*shutdown_func)());
+typedef void (*InitFunc)(const char*);
+typedef void (*UpdateFunc)();
+typedef void (*ShutdownFunc)();
+
+void monitor_initialize(InitFunc init_func, UpdateFunc update_func, ShutdownFunc shutdown_func);
 void monitor_clear();
 void monitor_draw_sprite(uint8_t x, uint8_t y, uint8_t* sprite, uint8_t sprite_size_in_bytes, bool* didCollide);
 bool monitor_get_key(uint8_t* outKey);

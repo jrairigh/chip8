@@ -8,56 +8,85 @@
 #include <math.h>
 #include <string.h>
 
-#define RASTER_COLUMNS 64
-#define RASTER_ROWS 32
-#define MAX_SAMPLES 512
-#define MAX_SAMPLES_PER_UPDATE 4096
 #define MAX_ROMS 82
 #define MAX_ROM_NAME_SIZE 64
-#define TRANSITION_EXTRA_DELAY 0.5f
-#define TRANSITION_TIME_IN_SECONDS (1 + TRANSITION_EXTRA_DELAY)
 
 #ifndef CHIP8_LOGLEVEL
 #define CHIP8_LOGLEVEL 0
 #endif
 
-struct KeypadPair
-{
-    uint8_t key;
-    uint8_t value;
-};
+extern Chip8 s_chip8;
 
-static const struct KeypadPair s_keypadBindings[16] = {
+static const struct KeypadPair
+{
+    uint8_t Key;
+    uint8_t Value;
+} KeyBindings[16] = {
     {KEY_ONE, 0x1}, {KEY_TWO, 0x2}, {KEY_THREE, 0x3}, {KEY_FOUR, 0xC},
     {KEY_Q, 0x4}, {KEY_W, 0x5}, {KEY_E, 0x6}, {KEY_R, 0xD},
     {KEY_A, 0x7}, {KEY_S, 0x8}, {KEY_D, 0x9}, {KEY_F, 0xE},
     {KEY_Z, 0xA}, {KEY_X, 0x0}, {KEY_C, 0xB}, {KEY_V, 0xF}
 };
 
-extern Chip8 s_chip8;
+static const struct ToneConstants
+{
+    float AudioFrequency;
+    uint32_t SampleRate;
+    uint32_t SampleSize;
+    uint32_t Channels;
+    uint32_t MaxSamplesPerUpdate;
+} ToneK = {
+    .AudioFrequency = 440.0f,
+    .SampleRate = 44100,
+    .SampleSize = 16,
+    .Channels = 1,
+    .MaxSamplesPerUpdate = 4096
+};
 
-static const uint32_t* s_monitor = NULL;
-const float AudioFrequency = 440.0f;
-const uint32_t SampleRate = 44100;
-const uint32_t SampleSize = 16;
-const uint32_t Channels = 1;
-float sineIdx = 0.0f;
-int32_t scale_x = 15;
-int32_t scale_y = 15;
-static AudioStream g_tone;
-static bool is_info_menu_shown = false;
-static bool s_step = false;
-static int s_info_menu_height = 0;
-static Texture2D s_menu_bg_tex2d;
-static char s_roms[MAX_ROMS][MAX_ROM_NAME_SIZE];
-static int s_selected_rom = 0;
-static float s_transition_time = 0.0f;
-static Vector2 s_old_window_position = {0, 0};
-static int s_old_window_height = 0;
+static struct RendererContext
+{
+    const uint32_t* Monitor;
+    const int32_t RasterRows;
+    const int32_t RasterColumns;
+    const float TransitionExtraDelay;
+    const float TransitionTimeInSeconds;
+    float transition_time;
+    float sine_idx;
+    char roms[MAX_ROMS][MAX_ROM_NAME_SIZE];
+    bool is_info_menu_shown;
+    bool step;
+    int32_t scale_x;
+    int32_t scale_y;
+    int32_t info_menu_height;
+    int32_t selected_rom;
+    int32_t old_window_height;
+    Vector2 old_window_position;
+    Texture2D menu_bg_tex2d;
+    AudioStream tone;
+} s_ctx = {
+    .RasterRows = 32,
+    .RasterColumns = 64,
+    .TransitionExtraDelay = 0.5f,
+    .TransitionTimeInSeconds = 1.5f,
+    .Monitor = NULL,
+    .sine_idx = 0.0f,
+    .scale_x = 15,
+    .scale_y = 15,
+    .tone = {0},
+    .is_info_menu_shown = false,
+    .step = false,
+    .info_menu_height = 0,
+    .menu_bg_tex2d = {0},
+    .roms = {{0}},
+    .selected_rom = 0,
+    .transition_time = 0.0f,
+    .old_window_position = {0, 0},
+    .old_window_height = 0
+};
 
-static void (*vm_init)(const char*);
-static void (*vm_update)();
-static void (*vm_shutdown)();
+static InitFunc vm_init;
+static UpdateFunc vm_update;
+static ShutdownFunc vm_shutdown;
 static inline void draw_column(uint32_t x);
 static void audio_processor(void *bufferData, uint32_t frames);
 static void draw_mini_sprite(int32_t x, int32_t y, int32_t width, int32_t height);
@@ -71,30 +100,30 @@ static void (*render_state)() = render_menu;
 
 void renderer_initialize(const uint32_t* monitor)
 {
-    s_monitor = monitor;
-    InitWindow(RASTER_COLUMNS * scale_x, RASTER_ROWS * scale_y, "Chip8 Emulator");
+    s_ctx.Monitor = monitor;
+    InitWindow(s_ctx.RasterColumns * s_ctx.scale_x, s_ctx.RasterRows * s_ctx.scale_y, "Chip8 Emulator");
     SetTargetFPS(60);
     SetTraceLogLevel(LOG_DEBUG + CHIP8_LOGLEVEL);
     SetWindowState(FLAG_WINDOW_UNDECORATED);
     
     InitAudioDevice();
-    SetAudioStreamBufferSizeDefault(MAX_SAMPLES_PER_UPDATE);
-    g_tone = LoadAudioStream(SampleRate, SampleSize, Channels);
-    SetAudioStreamCallback(g_tone, audio_processor);
+    SetAudioStreamBufferSizeDefault(ToneK.MaxSamplesPerUpdate);
+    s_ctx.tone = LoadAudioStream(ToneK.SampleRate, ToneK.SampleSize, ToneK.Channels);
+    SetAudioStreamCallback(s_ctx.tone, audio_processor);
 
-    SetAudioStreamVolume(g_tone, 1.0f);
+    SetAudioStreamVolume(s_ctx.tone, 1.0f);
 
-    if(IsAudioStreamReady(g_tone))
+    if(IsAudioStreamReady(s_ctx.tone))
     {
         TraceLog(LOG_INFO, "Audio stream is ready");
-        PlayAudioStream(g_tone);
-        PauseAudioStream(g_tone);
+        PlayAudioStream(s_ctx.tone);
+        PauseAudioStream(s_ctx.tone);
     }
 
-    s_old_window_position = GetWindowPosition();
-    s_old_window_height = GetScreenHeight();
+    s_ctx.old_window_position = GetWindowPosition();
+    s_ctx.old_window_height = GetScreenHeight();
 
-    s_menu_bg_tex2d = LoadTexture("../menu_bg_img.png");
+    s_ctx.menu_bg_tex2d = LoadTexture("../menu_bg_img.png");
 
     FilePathList roms = LoadDirectoryFiles(".");
 
@@ -107,7 +136,7 @@ void renderer_initialize(const uint32_t* monitor)
             continue;
         }
 
-        strcpy(s_roms[i], rom_name);
+        strcpy(s_ctx.roms[i], rom_name);
     }
 
     UnloadDirectoryFiles(roms);
@@ -125,23 +154,23 @@ void renderer_shutdown()
 {
     TraceLog(LOG_INFO, "Shutting down Chip8 VM");
     vm_shutdown();
-    UnloadTexture(s_menu_bg_tex2d);
-    UnloadAudioStream(g_tone);
+    UnloadTexture(s_ctx.menu_bg_tex2d);
+    UnloadAudioStream(s_ctx.tone);
     CloseAudioDevice();
     CloseWindow();
 }
 
-void renderer_set_init_func(void (*init_func)(const char*))
+void renderer_set_init_func(InitFunc init_func)
 {
     vm_init = init_func;
 }
 
-void renderer_set_update_func(void (*update_func)())
+void renderer_set_update_func(UpdateFunc update_func)
 {
     vm_update = update_func;
 }
 
-void renderer_set_shutdown_func(void (*shutdown_func)())
+void renderer_set_shutdown_func(ShutdownFunc shutdown_func)
 {
     vm_shutdown = shutdown_func;
 }
@@ -153,33 +182,33 @@ void renderer_log(int logLevel, const char* message, va_list args)
 
 void renderer_play_tone()
 {
-    if(IsAudioStreamPlaying(g_tone))
+    if(IsAudioStreamPlaying(s_ctx.tone))
     {
         return;
     }
 
-    ResumeAudioStream(g_tone);
+    ResumeAudioStream(s_ctx.tone);
     TraceLog(LOG_INFO, "Playing tone");
 }
 
 void renderer_stop_tone()
 {
-    if(!IsAudioStreamPlaying(g_tone))
+    if(!IsAudioStreamPlaying(s_ctx.tone))
     {
         return;
     }
-    
-    PauseAudioStream(g_tone);
+
+    PauseAudioStream(s_ctx.tone);
     TraceLog(LOG_INFO, "Stopping tone");
 }
 
 bool renderer_get_key(uint8_t* outKey)
 {
-    for(size_t i = 0; i < sizeof(s_keypadBindings) / sizeof(s_keypadBindings[0]); ++i)
+    for(size_t i = 0; i < sizeof(KeyBindings) / sizeof(KeyBindings[0]); ++i)
     {
-        if(IsKeyPressed(s_keypadBindings[i].key))
+        if(IsKeyPressed(KeyBindings[i].Key))
         {
-            *outKey = s_keypadBindings[i].value;
+            *outKey = KeyBindings[i].Value;
             return true;
         }
     }
@@ -189,9 +218,9 @@ bool renderer_get_key(uint8_t* outKey)
 
 bool renderer_is_key_down(uint8_t key)
 {
-    for(size_t i = 0; i < sizeof(s_keypadBindings) / sizeof(s_keypadBindings[0]); ++i)
+    for(size_t i = 0; i < sizeof(KeyBindings) / sizeof(KeyBindings[0]); ++i)
     {
-        if(s_keypadBindings[i].value == key && IsKeyDown(s_keypadBindings[i].key))
+        if(KeyBindings[i].Value == key && IsKeyDown(KeyBindings[i].Key))
         {
             return true;
         }
@@ -202,52 +231,26 @@ bool renderer_is_key_down(uint8_t key)
 
 static inline void draw_column(uint32_t x)
 {
-    DrawRectangle(x * scale_x,  0 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 <<  0) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x,  1 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 <<  1) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x,  2 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 <<  2) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x,  3 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 <<  3) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x,  4 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 <<  4) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x,  5 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 <<  5) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x,  6 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 <<  6) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x,  7 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 <<  7) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x,  8 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 <<  8) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x,  9 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 <<  9) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 10 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 10) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 11 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 11) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 12 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 12) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 13 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 13) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 14 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 14) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 15 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 15) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 16 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 16) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 17 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 17) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 18 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 18) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 19 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 19) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 20 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 20) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 21 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 21) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 22 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 22) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 23 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 23) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 24 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 24) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 25 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 25) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 26 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 26) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 27 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 27) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 28 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 28) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 29 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 29) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 30 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 30) ? WHITE : BLACK);
-    DrawRectangle(x * scale_x, 31 * scale_y + s_info_menu_height, scale_x, scale_y, s_monitor[x] & (1 << 31) ? WHITE : BLACK);
+    for(int32_t i = 0; i < s_ctx.RasterRows; ++i)
+    {
+        const Color color = s_ctx.Monitor[x] & (1 <<  i) ? WHITE : BLACK;
+        DrawRectangle(x * s_ctx.scale_x,  i * s_ctx.scale_y + s_ctx.info_menu_height, s_ctx.scale_x, s_ctx.scale_y, color);
+    }
 }
 
 void audio_processor(void *buffer, uint32_t frames)
 {
-    const float incr = AudioFrequency/ (float)SampleRate;
+    const float incr = ToneK.AudioFrequency / (float)ToneK.SampleRate;
     int16_t *d = (int16_t *)buffer;
 
-    for (uint32_t i = 0; i < frames; i++)
+    for (uint32_t i = 0; i < frames; ++i)
     {
-        d[i] = (int16_t)(32000.0f*sinf(2*PI*sineIdx));
-        sineIdx += incr;
-        if (sineIdx > 1.0f)
+        d[i] = (int16_t)(32000.0f * sinf(2.0f * PI * s_ctx.sine_idx));
+        s_ctx.sine_idx += incr;
+
+        if (s_ctx.sine_idx > 1.0f)
         {
-            sineIdx -= 1.0f;
+            s_ctx.sine_idx -= 1.0f;
         }
     }
 }
@@ -255,14 +258,14 @@ void audio_processor(void *buffer, uint32_t frames)
 static void render_menu()
 {
     Vector2 mousePos = GetMousePosition();
-    Rectangle playButtonBounds = (Rectangle){419, 411, 128, 53};
-    Rectangle cycleRightButtonBounds = (Rectangle){834, 340, 41, 36};
-    Rectangle cycleLeftButtonBounds = (Rectangle){84, 340, 41, 36};
+    const Rectangle playButtonBounds = (Rectangle){419, 411, 128, 53};
+    const Rectangle cycleRightButtonBounds = (Rectangle){834, 340, 41, 36};
+    const Rectangle cycleLeftButtonBounds = (Rectangle){84, 340, 41, 36};
 
     BeginDrawing();
-    DrawTexture(s_menu_bg_tex2d, 0, 0, WHITE);
-    DrawText(s_roms[s_selected_rom], cycleLeftButtonBounds.x + cycleLeftButtonBounds.width + 10, cycleLeftButtonBounds.y, 30, WHITE);
-    
+    DrawTexture(s_ctx.menu_bg_tex2d, 0, 0, WHITE);
+    DrawText(s_ctx.roms[s_ctx.selected_rom], cycleLeftButtonBounds.x + cycleLeftButtonBounds.width + 10, cycleLeftButtonBounds.y, 30, WHITE);
+
     const bool isOverPlayButton = CheckCollisionPointRec(mousePos, playButtonBounds);
     const bool isOverCycleRightButton = CheckCollisionPointRec(mousePos, cycleRightButtonBounds);
     const bool isOverCycleLeftButton = CheckCollisionPointRec(mousePos, cycleLeftButtonBounds);
@@ -275,61 +278,61 @@ static void render_menu()
     if(isOverPlayButton && IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
     {
         render_state = render_transition;
-        s_transition_time = GetTime() + TRANSITION_TIME_IN_SECONDS;
-        vm_init(s_roms[s_selected_rom]);
+        s_ctx.transition_time = GetTime() + s_ctx.TransitionTimeInSeconds;
+        vm_init(s_ctx.roms[s_ctx.selected_rom]);
     }
     else if(isOverCycleRightButton && IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
     {
-        s_selected_rom = (s_selected_rom + 1) % MAX_ROMS;
+        s_ctx.selected_rom = (s_ctx.selected_rom + 1) % MAX_ROMS;
     }
     else if(isOverCycleLeftButton && IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
     {
-        s_selected_rom = (s_selected_rom + MAX_ROMS - 1) % MAX_ROMS;
+        s_ctx.selected_rom = (s_ctx.selected_rom + MAX_ROMS - 1) % MAX_ROMS;
     }
 
-    if(IsAudioStreamPlaying(g_tone))
+    if(IsAudioStreamPlaying(s_ctx.tone))
     {
-        PauseAudioStream(g_tone);
+        PauseAudioStream(s_ctx.tone);
     }
 }
 
 static void render_transition()
 {
-    if(GetTime() >= s_transition_time - TRANSITION_EXTRA_DELAY)
+    if(GetTime() >= s_ctx.transition_time - s_ctx.TransitionExtraDelay)
     {
         render_state = render_game;
         return;
     }
 
-    const float t = Clamp(1.0f - ((s_transition_time - TRANSITION_EXTRA_DELAY - (float)GetTime()) / (TRANSITION_TIME_IN_SECONDS - TRANSITION_EXTRA_DELAY)), 0.0f, 1.0f);
-    int32_t width = (int32_t)floor(t * RASTER_COLUMNS * scale_x);
+    const float t = Clamp(1.0f - ((s_ctx.transition_time - s_ctx.TransitionExtraDelay - (float)GetTime()) / (s_ctx.TransitionTimeInSeconds - s_ctx.TransitionExtraDelay)), 0.0f, 1.0f);
+    int32_t width = (int32_t)floor(t * s_ctx.RasterColumns * s_ctx.scale_x);
     Rectangle playButtonBounds = (Rectangle){419, 411, 128, 53};
     Rectangle cycleLeftButtonBounds = (Rectangle){84, 340, 41, 36};
 
     BeginDrawing();
-    DrawTexture(s_menu_bg_tex2d, 0, 0, WHITE);
-    DrawText(s_roms[s_selected_rom], cycleLeftButtonBounds.x + cycleLeftButtonBounds.width + 10, cycleLeftButtonBounds.y, 30, WHITE);
+    DrawTexture(s_ctx.menu_bg_tex2d, 0, 0, WHITE);
+    DrawText(s_ctx.roms[s_ctx.selected_rom], cycleLeftButtonBounds.x + cycleLeftButtonBounds.width + 10, cycleLeftButtonBounds.y, 30, WHITE);
     DrawText("PLAY", playButtonBounds.x, playButtonBounds.y, 48, WHITE);
-    DrawRectangle(0, 0, width, RASTER_ROWS * scale_y, BLACK);
+    DrawRectangle(0, 0, width, s_ctx.RasterRows * s_ctx.scale_y, BLACK);
     EndDrawing();
 }
 
 static void render_game()
 {
-    if(is_info_menu_shown && IsKeyPressed(KEY_F10))
+    if(s_ctx.is_info_menu_shown && IsKeyPressed(KEY_F10))
     {
-        s_step = true;
+        s_ctx.step = true;
     }
-    else if(!is_info_menu_shown)
+    else if(!s_ctx.is_info_menu_shown)
     {
-        s_step = false;
+        s_ctx.step = false;
     }
 
-    if(s_step && IsKeyPressed(KEY_F10))
+    if(s_ctx.step && IsKeyPressed(KEY_F10))
     {
         vm_update();
     }
-    else if(!s_step)
+    else if(!s_ctx.step)
     {
         vm_update();
     }
@@ -337,15 +340,15 @@ static void render_game()
     if (IsKeyPressed(KEY_F2))
     {
         render_state = render_menu;
-        is_info_menu_shown = false;
+        s_ctx.is_info_menu_shown = false;
         update_window(false);
         return;
     }
 
     if (IsKeyPressed(KEY_F1))
     {
-        is_info_menu_shown = !is_info_menu_shown;
-        update_window(is_info_menu_shown);
+        s_ctx.is_info_menu_shown = !s_ctx.is_info_menu_shown;
+        update_window(s_ctx.is_info_menu_shown);
     }
 
     if (IsKeyPressed(KEY_EQUAL) && s_chip8.speed < 10000000)
@@ -360,19 +363,19 @@ static void render_game()
 
     if (IsWindowResized())
     {
-        scale_x = GetScreenWidth() / RASTER_COLUMNS;
-        scale_y = GetScreenHeight() / RASTER_ROWS;
+        s_ctx.scale_x = GetScreenWidth() / s_ctx.RasterColumns;
+        s_ctx.scale_y = GetScreenHeight() / s_ctx.RasterRows;
     }
 
     BeginDrawing();
     ClearBackground(BLACK);
 
-    for(int x = 0; x < RASTER_COLUMNS; ++x)
+    for(int x = 0; x < s_ctx.RasterColumns; ++x)
     {
         draw_column(x);
     }
 
-    if(is_info_menu_shown)
+    if(s_ctx.is_info_menu_shown)
     {
         const char* chip8Info = TextFormat("v0: %.02x  v1: %.02x  v2: %.02x  v3: %.02x  v4: %.02x  v5: %.02x  v6: %.02x  v7: %.02x\n\n"
             "v8: %.02x  v9: %.02x  va: %.02x  vb: %.02x  vc: %.02x  vd: %.02x  ve: %.02x  vf: %.02x\n\n"
@@ -388,9 +391,9 @@ static void render_game()
         DrawFPS(10, 10);
     }
 
-    if(GetTime() < s_transition_time)
+    if(GetTime() < s_ctx.transition_time)
     {
-        DrawRectangle(0, 0, RASTER_COLUMNS * scale_x, RASTER_ROWS * scale_y, BLACK);
+        DrawRectangle(0, 0, s_ctx.RasterColumns * s_ctx.scale_x, s_ctx.RasterRows * s_ctx.scale_y, BLACK);
     }
 
     EndDrawing();
@@ -458,9 +461,9 @@ static void update_window(bool isInfoShowing)
 {
     if(isInfoShowing)
     {
-        s_info_menu_height = 210;
+        s_ctx.info_menu_height = 210;
         const int window_width = GetScreenWidth();
-        const int window_height = s_old_window_height + s_info_menu_height;
+        const int window_height = s_ctx.old_window_height + s_ctx.info_menu_height;
         const int window_x = (GetMonitorWidth(0) - window_width) / 2;
         const int window_y = (GetMonitorHeight(0) - window_height) / 2;
         SetWindowPosition(window_x, window_y);
@@ -468,8 +471,8 @@ static void update_window(bool isInfoShowing)
     }
     else
     {
-        s_info_menu_height = 0;
-        SetWindowSize(GetScreenWidth(), s_old_window_height);
-        SetWindowPosition(s_old_window_position.x, s_old_window_position.y);
+        s_ctx.info_menu_height = 0;
+        SetWindowSize(GetScreenWidth(), s_ctx.old_window_height);
+        SetWindowPosition(s_ctx.old_window_position.x, s_ctx.old_window_position.y);
     }
 }
