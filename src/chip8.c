@@ -384,7 +384,7 @@ static void chip8_vm_run(const uint16_t instruction)
 
             if(s_chip8.v[0xF])
             {
-                monitor_log(LOG_DEBUG, "%.04x: DRW collision detected", currentPC);
+                monitor_log(LOG_DEBUG, "Collision detected");
             }
 
             vm_break;

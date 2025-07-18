@@ -12,7 +12,7 @@
 #define MONITOR_ROWS 32
 static uint32_t MONITOR[MONITOR_COLUMNS];
 
-static void monitor_set_pixel(uint8_t x, uint8_t y, uint8_t set, bool* didCollide);
+static inline void monitor_set_pixel(uint8_t x, uint8_t y, bool set, bool* didCollide);
 
 void monitor_initialize(void (*init_func)(const char*), void (*update_func)(), void (*shutdown_func)())
 {
@@ -41,24 +41,30 @@ void monitor_draw_sprite(uint8_t x, uint8_t y, uint8_t* sprite, uint8_t sprite_s
 {
     *didCollide = false;
     
-    for(int i = 0; i < sprite_size_in_bytes; ++i)
+    for(int i = 0; i < 8; ++i)
     {
-        uint8_t row = sprite[i];
-        for(int j = 0; j < 8; ++j)
+        for(int j = 0; j < sprite_size_in_bytes; ++j)
         {
-            monitor_set_pixel(x + j, y + i, (row & 0x80) > 0, didCollide);
-            row <<= 1;
+            const uint8_t row = sprite[j];
+
+            const bool set = ((row << i) & 0x80) > 0;
+            if(!set)
+            {
+                continue;
+            }
+
+            monitor_set_pixel(x + i, y + j, set, didCollide);
         }
     }
 }
 
-static void monitor_set_pixel(uint8_t x, uint8_t y, uint8_t set, bool* didCollide)
+static inline void monitor_set_pixel(uint8_t x, uint8_t y, bool set, bool* didCollide)
 {
     x = x >= MONITOR_COLUMNS ? x % MONITOR_COLUMNS : x;
     y = y >= MONITOR_ROWS ? y % MONITOR_ROWS : y;
 
     MONITOR[x] ^= (set << y);
-    *didCollide |= (MONITOR[x] & (1 << y)) == 0;
+    *didCollide = *didCollide || (MONITOR[x] & (1 << y)) == 0;
 }
 
 bool monitor_get_key(uint8_t* outKey)

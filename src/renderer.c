@@ -21,10 +21,6 @@
 #define CHIP8_LOGLEVEL 0
 #endif
 
-#ifndef CHIP8_STEP
-#define CHIP8_STEP 0
-#endif
-
 struct KeypadPair
 {
     uint8_t key;
@@ -50,6 +46,7 @@ int32_t scale_x = 15;
 int32_t scale_y = 15;
 static AudioStream g_tone;
 static bool is_info_menu_shown = false;
+static bool s_step = false;
 static int s_info_menu_height = 0;
 static Texture2D s_menu_bg_tex2d;
 static char s_roms[MAX_ROMS][MAX_ROM_NAME_SIZE];
@@ -319,11 +316,20 @@ static void render_transition()
 
 static void render_game()
 {
-    if(CHIP8_STEP && IsKeyPressed(KEY_F10))
+    if(is_info_menu_shown && IsKeyPressed(KEY_F10))
+    {
+        s_step = true;
+    }
+    else if(!is_info_menu_shown)
+    {
+        s_step = false;
+    }
+
+    if(s_step && IsKeyPressed(KEY_F10))
     {
         vm_update();
     }
-    else if(!CHIP8_STEP)
+    else if(!s_step)
     {
         vm_update();
     }
