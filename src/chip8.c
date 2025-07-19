@@ -2,7 +2,6 @@
 #include "chip8.h"
 #include "monitor.h"
 
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -68,9 +67,7 @@ void chip8_initialize(const char* rom)
 
     if(strlen(rom) > 0)
     {
-        char chBuffer[256];
-        sprintf(chBuffer, "Loading ROM %s", rom);
-        monitor_log(LOG_INFO, chBuffer);
+        monitor_log(LOG_INFO, "Loading ROM %s", rom);
         chip8_load_rom(rom);
     }
 
@@ -150,7 +147,6 @@ void chip8_load_program(uint16_t* program, size_t program_size)
 
 static void chip8_vm_run(const uint16_t instruction)
 {
-    assert((g_chip8.pc & 0x1) == 0); // Ensure PC is even
     const uint16_t currentPC = g_chip8.pc;
 
     g_chip8.pc += 2;

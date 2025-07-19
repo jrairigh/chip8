@@ -22,10 +22,6 @@ endforeach()
 target_compile_definitions(Chip8Tests PRIVATE RUN_TESTS)
 target_link_libraries(Chip8 raylib)
 
-if(CMAKE_GENERATOR STREQUAL "Visual Studio 16 2019" OR CMAKE_GENERATOR STREQUAL "Visual Studio 17 2022")
-    set_target_properties(Chip8 PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/assets/rom")
-endif()
-
 add_custom_command(TARGET Chip8 POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_SOURCE_DIR}/assets

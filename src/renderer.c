@@ -88,6 +88,7 @@ static void audio_processor(void *bufferData, uint32_t frames);
 static void draw_mini_sprite(int32_t x, int32_t y, int32_t width, int32_t height);
 static void draw_stack(int32_t x, int32_t y, int32_t width, int32_t height);
 static void update_window(bool is_info_showing);
+static void set_working_directory(void);
 
 static void render_menu(void);
 static void render_transition(void);
@@ -98,6 +99,7 @@ void renderer_initialize(const uint32_t* monitor)
 {
     s_ctx.Monitor = monitor;
     InitWindow(s_ctx.RasterColumns * s_ctx.Scale, s_ctx.RasterRows * s_ctx.Scale, "Chip8 Emulator");
+    set_working_directory();
     SetTargetFPS(60);
     SetTraceLogLevel(LOG_DEBUG + CHIP8_LOGLEVEL);
     
@@ -463,4 +465,15 @@ static void update_window(const bool is_info_showing)
     }
 
     SetWindowSize(window_width, window_height);
+}
+
+static void set_working_directory(void)
+{
+    const char* wd = GetWorkingDirectory();
+    if(!FileExists(TextFormat("%s/../../chip8.exe", wd)))
+    {
+        const char* new_wd = TextFormat("%s/assets/rom", GetApplicationDirectory());
+        TraceLog(LOG_INFO, "Setting working directory to %s", new_wd);
+        ChangeDirectory(new_wd);
+    }
 }
