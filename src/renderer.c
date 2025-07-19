@@ -8,7 +8,7 @@
 #include <math.h>
 #include <string.h>
 
-#define MAX_ROMS 82
+#define MAX_ROMS 10
 #define MAX_ROM_NAME_SIZE 64
 
 #ifndef CHIP8_LOGLEVEL
@@ -56,8 +56,9 @@ static struct RendererContext
     char roms[MAX_ROMS][MAX_ROM_NAME_SIZE];
     bool is_info_menu_shown;
     bool step;
+    uint32_t rom_count;
+    uint32_t selected_rom;
     int32_t info_menu_height;
-    int32_t selected_rom;
     int32_t old_window_height;
     Texture2D menu_bg_tex2d;
     AudioStream tone;
@@ -73,6 +74,7 @@ static struct RendererContext
     .is_info_menu_shown = false,
     .step = false,
     .info_menu_height = 0,
+    .rom_count = 0,
     .menu_bg_tex2d = {0},
     .roms = {{0}},
     .selected_rom = 0,
@@ -122,8 +124,10 @@ void renderer_initialize(const uint32_t* monitor)
     s_ctx.menu_bg_tex2d = LoadTexture("../menu_bg_img.png");
 
     FilePathList roms = LoadDirectoryFiles(".");
+    assert(roms.count <= MAX_ROMS);
+    s_ctx.rom_count = MAX_ROMS < roms.count ? MAX_ROMS : roms.count;
 
-    for(uint32_t i = 0; i < roms.count; ++i)
+    for(uint32_t i = 0; i < s_ctx.rom_count; ++i)
     {
         const char* rom_name = GetFileName(roms.paths[i]);
 
@@ -280,11 +284,11 @@ static void render_menu(void)
     }
     else if(isOverCycleRightButton && IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
     {
-        s_ctx.selected_rom = (s_ctx.selected_rom + 1) % MAX_ROMS;
+        s_ctx.selected_rom = (s_ctx.selected_rom + 1) % s_ctx.rom_count;
     }
     else if(isOverCycleLeftButton && IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
     {
-        s_ctx.selected_rom = (s_ctx.selected_rom + MAX_ROMS - 1) % MAX_ROMS;
+        s_ctx.selected_rom = (s_ctx.selected_rom + s_ctx.rom_count - 1) % s_ctx.rom_count;
     }
 
     if(IsAudioStreamPlaying(s_ctx.tone))
