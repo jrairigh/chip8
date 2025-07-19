@@ -34,7 +34,7 @@ static const struct ToneConstants
     uint32_t SampleRate;
     uint32_t SampleSize;
     uint32_t Channels;
-    uint32_t MaxSamplesPerUpdate;
+    int32_t MaxSamplesPerUpdate;
 } ToneK = {
     .AudioFrequency = 440.0f,
     .SampleRate = 44100,
@@ -83,16 +83,16 @@ static struct RendererContext
 static InitFunc vm_init;
 static UpdateFunc vm_update;
 static ShutdownFunc vm_shutdown;
-static inline void draw_column(uint32_t x);
+static void draw_column(uint32_t x);
 static void audio_processor(void *bufferData, uint32_t frames);
 static void draw_mini_sprite(int32_t x, int32_t y, int32_t width, int32_t height);
 static void draw_stack(int32_t x, int32_t y, int32_t width, int32_t height);
-static void update_window(bool isInfoShowing);
+static void update_window(bool is_info_showing);
 
-static void render_menu();
-static void render_transition();
-static void render_game();
-static void (*render_state)() = render_menu;
+static void render_menu(void);
+static void render_transition(void);
+static void render_game(void);
+static void (*render_state)(void) = render_menu;
 
 void renderer_initialize(const uint32_t* monitor)
 {
@@ -136,7 +136,7 @@ void renderer_initialize(const uint32_t* monitor)
     UnloadDirectoryFiles(roms);
 }
 
-void renderer_do_update()
+void renderer_do_update(void)
 {
     while(!WindowShouldClose())
     {
@@ -144,7 +144,7 @@ void renderer_do_update()
     }
 }
 
-void renderer_shutdown()
+void renderer_shutdown(void)
 {
     TraceLog(LOG_INFO, "Shutting down Chip8 VM");
     vm_shutdown();
@@ -154,27 +154,27 @@ void renderer_shutdown()
     CloseWindow();
 }
 
-void renderer_set_init_func(InitFunc init_func)
+void renderer_set_init_func(const InitFunc init_func)
 {
     vm_init = init_func;
 }
 
-void renderer_set_update_func(UpdateFunc update_func)
+void renderer_set_update_func(const UpdateFunc update_func)
 {
     vm_update = update_func;
 }
 
-void renderer_set_shutdown_func(ShutdownFunc shutdown_func)
+void renderer_set_shutdown_func(const ShutdownFunc shutdown_func)
 {
     vm_shutdown = shutdown_func;
 }
 
-void renderer_log(int logLevel, const char* message, va_list args)
+void renderer_log(const int32_t log_level, const char* message, const va_list args)
 {
-    TraceLogV(LOG_DEBUG + logLevel, message, args);
+    TraceLogV(LOG_DEBUG + log_level, message, args);
 }
 
-void renderer_play_tone()
+void renderer_play_tone(void)
 {
     if(IsAudioStreamPlaying(s_ctx.tone))
     {
@@ -185,7 +185,7 @@ void renderer_play_tone()
     TraceLog(LOG_INFO, "Playing tone");
 }
 
-void renderer_stop_tone()
+void renderer_stop_tone(void)
 {
     if(!IsAudioStreamPlaying(s_ctx.tone))
     {
@@ -196,13 +196,13 @@ void renderer_stop_tone()
     TraceLog(LOG_INFO, "Stopping tone");
 }
 
-bool renderer_get_key(uint8_t* outKey)
+bool renderer_get_key(uint8_t* out_key)
 {
     for(size_t i = 0; i < sizeof(KeyBindings) / sizeof(KeyBindings[0]); ++i)
     {
         if(IsKeyPressed(KeyBindings[i].Key))
         {
-            *outKey = KeyBindings[i].Value;
+            *out_key = KeyBindings[i].Value;
             return true;
         }
     }
@@ -210,7 +210,7 @@ bool renderer_get_key(uint8_t* outKey)
     return false;
 }
 
-bool renderer_is_key_down(uint8_t key)
+bool renderer_is_key_down(const uint8_t key)
 {
     for(size_t i = 0; i < sizeof(KeyBindings) / sizeof(KeyBindings[0]); ++i)
     {
@@ -223,19 +223,20 @@ bool renderer_is_key_down(uint8_t key)
     return false;
 }
 
-static inline void draw_column(uint32_t x)
+static void draw_column(const uint32_t x)
 {
+    assert((int32_t)x < s_ctx.RasterColumns);
     for(int32_t i = 0; i < s_ctx.RasterRows; ++i)
     {
         const Color color = s_ctx.Monitor[x] & (1 <<  i) ? WHITE : BLACK;
-        DrawRectangle(x * s_ctx.Scale,  i * s_ctx.Scale + s_ctx.info_menu_height, s_ctx.Scale, s_ctx.Scale, color);
+        DrawRectangle((int32_t)x * s_ctx.Scale,  i * s_ctx.Scale + s_ctx.info_menu_height, s_ctx.Scale, s_ctx.Scale, color);
     }
 }
 
-void audio_processor(void *buffer, uint32_t frames)
+void audio_processor(void *buffer, const uint32_t frames)
 {
     const float incr = ToneK.AudioFrequency / (float)ToneK.SampleRate;
-    int16_t *d = (int16_t *)buffer;
+    int16_t *d = buffer;
 
     for (uint32_t i = 0; i < frames; ++i)
     {
@@ -249,30 +250,30 @@ void audio_processor(void *buffer, uint32_t frames)
     }
 }
 
-static void render_menu()
+static void render_menu(void)
 {
-    Vector2 mousePos = GetMousePosition();
+    const Vector2 mousePos = GetMousePosition();
     const Rectangle playButtonBounds = (Rectangle){419, 411, 128, 53};
     const Rectangle cycleRightButtonBounds = (Rectangle){834, 340, 41, 36};
     const Rectangle cycleLeftButtonBounds = (Rectangle){84, 340, 41, 36};
 
     BeginDrawing();
     DrawTexture(s_ctx.menu_bg_tex2d, 0, 0, WHITE);
-    DrawText(s_ctx.roms[s_ctx.selected_rom], cycleLeftButtonBounds.x + cycleLeftButtonBounds.width + 10, cycleLeftButtonBounds.y, 30, WHITE);
+    DrawText(s_ctx.roms[s_ctx.selected_rom], (int32_t)(cycleLeftButtonBounds.x + cycleLeftButtonBounds.width + 10), (int32_t)cycleLeftButtonBounds.y, 30, WHITE);
 
     const bool isOverPlayButton = CheckCollisionPointRec(mousePos, playButtonBounds);
     const bool isOverCycleRightButton = CheckCollisionPointRec(mousePos, cycleRightButtonBounds);
     const bool isOverCycleLeftButton = CheckCollisionPointRec(mousePos, cycleLeftButtonBounds);
 
-    DrawText("PLAY", playButtonBounds.x, playButtonBounds.y, 48, isOverPlayButton ? GREEN : WHITE);
-    DrawRectangle(cycleLeftButtonBounds.x, cycleLeftButtonBounds.y, cycleLeftButtonBounds.width, cycleLeftButtonBounds.height, isOverCycleLeftButton ? (Color){0, 255, 0, 66} : (Color){0, 255, 0, 33});
-    DrawRectangle(cycleRightButtonBounds.x, cycleRightButtonBounds.y, cycleRightButtonBounds.width, cycleRightButtonBounds.height, isOverCycleRightButton ? (Color){0, 255, 0, 66} : (Color){0, 255, 0, 33});
+    DrawText("PLAY", (int32_t)playButtonBounds.x, (int32_t)playButtonBounds.y, 48, isOverPlayButton ? GREEN : WHITE);
+    DrawRectangle((int32_t)cycleLeftButtonBounds.x, (int32_t)cycleLeftButtonBounds.y, (int32_t)cycleLeftButtonBounds.width, (int32_t)cycleLeftButtonBounds.height, isOverCycleLeftButton ? (Color){0, 255, 0, 66} : (Color){0, 255, 0, 33});
+    DrawRectangle((int32_t)cycleRightButtonBounds.x, (int32_t)cycleRightButtonBounds.y, (int32_t)cycleRightButtonBounds.width, (int32_t)cycleRightButtonBounds.height, isOverCycleRightButton ? (Color){0, 255, 0, 66} : (Color){0, 255, 0, 33});
     EndDrawing();
 
     if(isOverPlayButton && IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
     {
         render_state = render_transition;
-        s_ctx.transition_time = GetTime() + s_ctx.TransitionTimeInSeconds;
+        s_ctx.transition_time = (float)GetTime() + s_ctx.TransitionTimeInSeconds;
         vm_init(s_ctx.roms[s_ctx.selected_rom]);
     }
     else if(isOverCycleRightButton && IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
@@ -290,7 +291,7 @@ static void render_menu()
     }
 }
 
-static void render_transition()
+static void render_transition(void)
 {
     if(GetTime() >= s_ctx.transition_time - s_ctx.TransitionExtraDelay)
     {
@@ -299,19 +300,19 @@ static void render_transition()
     }
 
     const float t = Clamp(1.0f - ((s_ctx.transition_time - s_ctx.TransitionExtraDelay - (float)GetTime()) / (s_ctx.TransitionTimeInSeconds - s_ctx.TransitionExtraDelay)), 0.0f, 1.0f);
-    int32_t width = (int32_t)floor(t * s_ctx.RasterColumns * s_ctx.Scale);
-    Rectangle playButtonBounds = (Rectangle){419, 411, 128, 53};
-    Rectangle cycleLeftButtonBounds = (Rectangle){84, 340, 41, 36};
+    const int32_t width = (int32_t)floorf(t * (float)s_ctx.RasterColumns * (float)s_ctx.Scale);
+    const Rectangle playButtonBounds = (Rectangle){419, 411, 128, 53};
+    const Rectangle cycleLeftButtonBounds = (Rectangle){84, 340, 41, 36};
 
     BeginDrawing();
     DrawTexture(s_ctx.menu_bg_tex2d, 0, 0, WHITE);
-    DrawText(s_ctx.roms[s_ctx.selected_rom], cycleLeftButtonBounds.x + cycleLeftButtonBounds.width + 10, cycleLeftButtonBounds.y, 30, WHITE);
-    DrawText("PLAY", playButtonBounds.x, playButtonBounds.y, 48, WHITE);
+    DrawText(s_ctx.roms[s_ctx.selected_rom], (int32_t)(cycleLeftButtonBounds.x + cycleLeftButtonBounds.width + 10), (int32_t)cycleLeftButtonBounds.y, 30, WHITE);
+    DrawText("PLAY", (int32_t)playButtonBounds.x, (int32_t)playButtonBounds.y, 48, WHITE);
     DrawRectangle(0, 0, width, s_ctx.RasterRows * s_ctx.Scale, BLACK);
     EndDrawing();
 }
 
-static void render_game()
+static void render_game(void)
 {
     if(s_ctx.is_info_menu_shown && IsKeyPressed(KEY_F10))
     {
@@ -387,7 +388,7 @@ static void render_game()
     EndDrawing();
 }
 
-static void draw_mini_sprite(int32_t x, int32_t y, int32_t width, int32_t height)
+static void draw_mini_sprite(const int32_t x, const int32_t y, const int32_t width, const int32_t height)
 {
     assert(width % 8 == 0 && height % 15 == 0);
     const int32_t px_width = width / 8;
@@ -424,7 +425,7 @@ static void draw_mini_sprite(int32_t x, int32_t y, int32_t width, int32_t height
     DrawRectangleLines(x, y, width, height, DARKGRAY);
 }
 
-static void draw_stack(int32_t x, int32_t y, int32_t width, int32_t height)
+static void draw_stack(const int32_t x, const int32_t y, const int32_t width, const int32_t height)
 {
     const int32_t px_width = width / 16;
     DrawRectangleLines(x, y, width, height, BLACK);
@@ -445,12 +446,12 @@ static void draw_stack(int32_t x, int32_t y, int32_t width, int32_t height)
     DrawRectangleLines(x, y, width, height, DARKGRAY);
 }
 
-static void update_window(bool isInfoShowing)
+static void update_window(const bool is_info_showing)
 {
     const int32_t window_width = GetScreenWidth();
     int32_t window_height;
 
-    if(isInfoShowing)
+    if(is_info_showing)
     {
         s_ctx.info_menu_height = 210;
         window_height = s_ctx.old_window_height + s_ctx.info_menu_height;

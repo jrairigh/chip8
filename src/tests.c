@@ -8,7 +8,7 @@
 
 void chip8_load_program(uint16_t* program, size_t program_size);
 void chip8_initialize(const char* rom);
-void chip8_cycle();
+void chip8_cycle(void);
 
 extern Chip8 g_chip8;
 
@@ -25,14 +25,14 @@ extern Chip8 g_chip8;
         chip8_cycle(); \
     bool passed = true;
     
-#define ASSERT_REG(reg, value) passed = passed && (g_chip8.v[reg] == value);
-#define ASSERT_SP(value) passed = passed && (g_chip8.sp == value);
-#define ASSERT_PC(value) passed = passed && (g_chip8.pc == value);
-#define ASSERT_INDEX(value) passed = passed && (g_chip8.index == value);
-#define ASSERT_STACK(level, value) passed = passed && (g_chip8.stack[level] == value);
-#define ASSERT_DT(value) passed = passed && (g_chip8.delay_timer == value);
-#define ASSERT_ST(value) passed = passed && (g_chip8.sound_timer == value);
-#define ASSERT_MEM(index, value) passed = passed && (g_chip8.ram[index] == value);
+#define ASSERT_REG(reg, value) passed = passed && (g_chip8.v[reg] == (value));
+#define ASSERT_SP(value) passed = passed && (g_chip8.sp == (value));
+#define ASSERT_PC(value) passed = passed && (g_chip8.pc == (value));
+#define ASSERT_INDEX(value) passed = passed && (g_chip8.index == (value));
+#define ASSERT_STACK(level, value) passed = passed && (g_chip8.stack[level] == (value));
+#define ASSERT_DT(value) passed = passed && (g_chip8.delay_timer == (value));
+#define ASSERT_ST(value) passed = passed && (g_chip8.sound_timer == (value));
+#define ASSERT_MEM(index, value) passed = passed && (g_chip8.ram[index] == (value));
 
 #define END_TEST \
     if(passed) { \
@@ -40,7 +40,7 @@ extern Chip8 g_chip8;
     } \
     printf("Test %s\n%s\n", test_name, passed ? "PASSED" : "FAILED");}
 
-void chip8_run_tests()
+void chip8_run_tests(void)
 {
     int passed_tests = 0, total_tests = 0;
 
@@ -282,6 +282,13 @@ void chip8_run_tests()
         ASSERT_REG(0x1, 59)
     END_TEST
 
+    BEGIN_TEST("Load sound timer")
+        LD1(0x0, 60)
+        LD4(0x0)
+        RUN_TEST
+        ASSERT_ST(58)
+    END_TEST
+
     BEGIN_TEST("Load vector (write)")
         LD1(0x0, 0xF0)
         LD1(0x1, 0x10)
@@ -299,7 +306,7 @@ void chip8_run_tests()
     END_TEST
 
     BEGIN_TEST("Load vector (write fails)")
-        LD9(0x4) // trys to overwrite digit 0 with zeroes
+        LD9(0x4) // tries to overwrite digit 0 with zeroes
         RUN_TEST
         ASSERT_MEM(0x000, 0xF0)
         ASSERT_MEM(0x001, 0x90)

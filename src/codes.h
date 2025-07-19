@@ -23,12 +23,12 @@
 
 #define ADDR(instr) ((instr) & 0x0FFF)
 #define NIBBLE(instr) ((instr) & 0x000F)
-#define X(instr) ((instr & 0x0F00) >> 8)
-#define Y(instr) ((instr & 0x00F0) >> 4)
+#define X(instr) (((instr) & 0x0F00) >> 8)
+#define Y(instr) (((instr) & 0x00F0) >> 4)
 #define BYTE(instr) ((instr) & 0x00FF)
 
-#define REGX(x) ((x << 8) & 0x0F00)
-#define REGY(y) ((y << 4) & 0x00F0)
+#define REGX(x) (((x) << 8) & 0x0F00)
+#define REGY(y) (((y) << 4) & 0x00F0)
 
 #define CLS 0x00E0,
 #define RET 0x00EE,

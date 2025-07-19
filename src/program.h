@@ -1,3 +1,6 @@
+#ifndef PROGRAM_H
+#define PROGRAM_H
+
 #include "codes.h"
 
 /*
@@ -41,3 +44,5 @@ unsigned short program[] = {
 /*232*/ RET             
 // End func
 };
+
+#endif

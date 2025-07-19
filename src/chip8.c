@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define vm_switch(inst, mask) switch(inst & mask)
+#define vm_switch(inst, mask) switch((inst) & (mask))
 #define vm_case(op) case op:
 #define vm_default default:
 #define vm_break break;
@@ -16,19 +16,19 @@ Chip8 g_chip8;
 
 static void chip8_load_rom(const char* rom_path);
 static void chip8_vm_run(const uint16_t instruction);
-static void chip8_shutdown();
+static void chip8_shutdown(void);
 void chip8_initialize(const char* rom);
-void chip8_cycle();
+void chip8_cycle(void);
 void chip8_load_program(uint16_t* program, size_t program_size);
 
 #ifndef RUN_TESTS
-void chip8_run()
+void chip8_run(void)
 {
     monitor_initialize(chip8_initialize, chip8_cycle, chip8_shutdown);
 }
 #else
-void chip8_run_tests();
-void chip8_run()
+void chip8_run_tests(void);
+void chip8_run(void)
 {
     chip8_run_tests();
 }
@@ -77,7 +77,7 @@ void chip8_initialize(const char* rom)
     monitor_clear();
 }
 
-void chip8_cycle()
+void chip8_cycle(void)
 {
     if(g_chip8.halted)
     {
@@ -97,7 +97,8 @@ void chip8_cycle()
         const uint8_t x = X((upper << 8) | lower);
 
         uint8_t key;
-        bool is_pressed = monitor_get_key(&key);
+        const bool is_pressed = monitor_get_key(&key);
+
         if(is_pressed)
         {
             g_chip8.v[x] = key;
@@ -107,7 +108,7 @@ void chip8_cycle()
         return;
     }
 
-    for(int32_t i = 0; i < g_chip8.speed; ++i)
+    for(uint32_t i = 0; i < g_chip8.speed; ++i)
     {
         const uint16_t upper = (uint16_t)g_chip8.ram[g_chip8.pc];
         const uint16_t lower = (uint16_t)g_chip8.ram[g_chip8.pc + 1];
@@ -553,7 +554,7 @@ static void chip8_vm_run(const uint16_t instruction)
     }
 }
 
-static void chip8_shutdown()
+static void chip8_shutdown(void)
 {
     printf("Shutdown chip8 emulation\n");
 }
@@ -605,7 +606,7 @@ static void chip8_load_rom(const char* rom_path)
             bytes_read = fread(buffer, sizeof(uint8_t), sizeof(buffer), rom);
         }
         
-        fclose(rom);
+        monitor_log(LOG_INFO, "ROM close %s", fclose(rom) == 0 ? "successful" : "failed");
     }
 #endif
 }
