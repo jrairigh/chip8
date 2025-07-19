@@ -6,20 +6,20 @@ My Chip8 emulator implementation.
 ## How to build
 Open a powershell and run .\build.ps1.
 ### Parameters
-- `$Config` either Debug or Release
-- `$Clean` removes the build directory
-- `$Log` either debug, info, warn, or error
-- `$Generator` generator passed to cmake -G
+- `$Config` either Debug or Release. Default is Release
+- `$Clean` removes the build directory. Default is false.
+- `$Log` either debug, info, warn, or error. Default is info.
+- `$Generator` generator passed to cmake -G. Default is Ninja.
 
 ## How to run
 Open a powershell and run .\chip8.ps1
 ### Parameters
-- `$Config` either Debug or Release
+- `$Config` either Debug or Release. Default is Release.
 
 ## How to run tests
 Open a powershell and run .\run-tests.ps1
 ### Parameters
-- `$Config` either Debug or Release
+- `$Config` either Debug or Release. Default is Release.
 
 ## Game Controls
 All games use one or more of these keys to play the game.  
