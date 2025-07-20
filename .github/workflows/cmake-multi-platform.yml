@@ -58,7 +58,8 @@ jobs:
       #if: runner.os == 'ubuntu-latest'
       run: |
         sudo apt-get install -y libx11-dev
-        sudo apt-get install -y librandr
+        sudo apt-cache search randr
+        sudo apt-get install -y librandr-dev
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
