@@ -42,6 +42,9 @@ All games use one or more of these keys to play the game.
 - +/- keys update speed (instructions per cycle) by factors of 10
 - Esc exits the application
 
+## Extras
+There are more ROMs in the extras folder. Just copy these to the assets\rom folder and they'll be available in the main menu. Currently, the main menu will only show ten ROMs.  You can increase this by upping `MAX_ROMS` in renderer.c.
+
 ## Acknowledgements
 Thanks to @ankushChatterjee for inspiration from https://www.youtube.com/watch?v=jWpbHC6DtnU&t=2s and technical details provided in http://devernay.free.fr/hacks/chip8/C8TECH10.HTM#0.1  
 Also, Thanks to @kripod for ROMS I used to test emulator (https://github.com/kripod/chip8-roms)
