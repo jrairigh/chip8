@@ -5,6 +5,8 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+
+
 add_subdirectory(vendor/raylib)
 
 file(GLOB SOURCES "src/*")
@@ -18,6 +20,12 @@ foreach(FLAG ${BUILD_FLAGS})
     target_compile_definitions(Chip8 PRIVATE ${FLAG})
     target_compile_definitions(Chip8Tests PRIVATE ${FLAG})
 endforeach()
+
+find_package(X11)
+if(X11_FOUND)
+    target_include_directories(Chip8 PRIVATE ${X11_INCLUDE_DIR})
+    target_link_libraries(Chip8 ${X11_LIBRARIES})
+endif()
 
 target_compile_definitions(Chip8Tests PRIVATE RUN_TESTS)
 target_link_libraries(Chip8 raylib)
