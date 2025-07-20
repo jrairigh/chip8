@@ -55,7 +55,7 @@ jobs:
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
     - name: Install X11 dependencies
-      if: runner.os == 'ubuntu-latest'
+      #if: runner.os == 'ubuntu-latest'
       run: |
         sudo apt-get install -y libx11-dev
 
